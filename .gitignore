@@ -1,0 +1,30 @@
+# secrets
+.env
+
+# files from the original game and screenshots of it: never published
+*.apk
+*.xapk
+/manifest.json
+reference/
+
+# local working copies and one-off patch scripts
+backup/
+tools/*.bak*
+tools/apply-*.py
+
+# misc
+node_modules/
+.DS_Store
+Thumbs.db
+
+# scratch list of image links from collecting art (not part of the game)
+gossip-gardens/urls.txt
+HANDOFF.md
+
+# raw image sheets, unused old backgrounds and working files: kept on the owner's PC only
+gossip-gardens/art/incoming/
+gossip-gardens/art/sheets/
+gossip-gardens/art/scenes/area_1.webp
+gossip-gardens/art/scenes/area_2.webp
+gossip-gardens/art/scenes/area_3.webp
+.claude/

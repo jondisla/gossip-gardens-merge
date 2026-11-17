@@ -1,0 +1,9 @@
+{
+  "name": "gossip-gardens",
+  "private": true,
+  "version": "0.1.0",
+  "description": "A merge game. Open index.html to play. No build step, no dependencies.",
+  "scripts": {
+    "test": "node --test tests/*.test.js"
+  }
+}

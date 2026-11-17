@@ -1,0 +1,21 @@
+{
+  "name": "Gossip Gardens",
+  "short_name": "Gossip Gardens",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#dff2dc",
+  "theme_color": "#2f6b4f",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "display_override": [
+    "fullscreen",
+    "standalone"
+  ]
+}
