@@ -143,12 +143,12 @@
             const st = g.taskState(t), done = st === 'done';
             const ch = g.currentChore(), ok = !!ch && s.coins >= ch.cost;
             let badge = '';
-            if (st === 'available') badge = '<span class="cost ' + (ok ? 'ok' : 'no') + '">' + icon('coin') + (ch ? ch.cost : '') + '</span>';
+            if (st === 'available') badge = '<span class="cost ' + (ok ? 'ok' : 'no') + '">' + icon('coin') + (ch ? Math.min(s.coins, ch.cost) + '/' + ch.cost : '') + '</span>';
             else if (st === 'locked') badge = padlock ? '<img class="pc-lock" src="' + padlock + '" alt="" draggable="false">' : '';
             else badge = '<span class="pc-done">&#10003;</span>';
             const pos = LAY[k % LAY.length];
-            return '<button class="piece st-' + st + (justDone === t.id ? ' just' : '') + '" data-piece="' + t.id + '" style="--cx:' + pos[0] + '%;--cy:' + pos[1] + '%;--w:' + pos[2] + '%;z-index:' + (k + 1) + '">' +
-              '<span class="piece-art">' + plotArt(t.kind, done, undefined, g.finishOf(t.id)) + '</span>' + badge + '<span class="piece-name">' + t.name + '</span></button>';
+            return '<button class="piece st-' + st + (justDone === t.id ? ' just' : '') + '" data-piece="' + t.id + '" aria-label="' + t.name + '" title="' + t.name + '" style="--cx:' + pos[0] + '%;--cy:' + pos[1] + '%;--w:' + pos[2] + '%;z-index:' + (k + 1) + '">' +
+              '<span class="piece-art">' + plotArt(t.kind, done, undefined, g.finishOf(t.id)) + '</span>' + badge + '</button>';
           }).join('') +
           '<div class="rtop"><span class="rstars">' + icon('star') + '<b>' + g.starsAvailable() + '</b></span>' +
           '<div class="areabar"><button class="arr" data-viewstep="-1"' + (estateView > 0 ? '' : ' disabled') + ' aria-label="Previous spot">&#8249;</button>' +
