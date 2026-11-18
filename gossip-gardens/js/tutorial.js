@@ -7,7 +7,7 @@
 (function () {
   'use strict';
   const G = window.GG;
-  const { CHAINS, maxLevel, portrait } = G;
+  const { CHAINS, TUNING: T, maxLevel, portrait } = G;
 
   G.makeTutorial = function (ui) {
     const q = (sel) => document.querySelector(sel);
@@ -49,6 +49,46 @@
       }
       return null;
     };
+    const neigh = (i) => {
+      const r = Math.floor(i / T.cols), cc = i % T.cols, out = [];
+      if (r > 0) out.push(i - T.cols); if (r < T.rows - 1) out.push(i + T.cols); if (cc > 0) out.push(i - 1); if (cc < T.cols - 1) out.push(i + 1);
+      return out;
+    };
+    // Two free cells next to a merge-to-clear sand tile: the tutorial drops a pair there so the step can always be done.
+    const sandPlan = (c) => {
+      const free = (j) => !c.cells[j] && !(c.s.locks && c.s.locks[j]);
+      for (const k of Object.keys(c.s.locks || {})) {
+        if (!c.s.locks[k].near) continue;
+        const sand = +k;
+        for (const to of neigh(sand)) {
+          if (!free(to)) continue;
+          for (const from of neigh(to)) if (from !== sand && free(from)) return { sand, to, from };
+        }
+      }
+      return null;
+    };
+    // A webbed item plus a matching free item to drag onto it (the tutorial adds one if the board has none).
+    const webPlan = (c) => {
+      const wi = find(c, (it) => it.web);
+      if (wi < 0) return null;
+      const w = c.cells[wi];
+      if (w.level >= maxLevel(w.chain)) return null;
+      const own = find(c, (it, i) => i !== wi && !it.web && !it.bubbleUntil && it.chain === w.chain && it.level === w.level);
+      if (own >= 0) return { web: wi, from: own, chain: w.chain, level: w.level };
+      const free = (j) => !c.cells[j] && !(c.s.locks && c.s.locks[j]);
+      let spot = neigh(wi).find(free);
+      if (spot == null) for (let j = 0; j < c.cells.length; j++) if (free(j)) { spot = j; break; }
+      return spot == null ? null : { web: wi, from: spot, spawn: spot, chain: w.chain, level: w.level };
+    };
+    // What each tool can actually be used on right now, so a tip only appears when the step can be done.
+    const splitTarget = (c) => c.g.emptyCount() >= 1 ? find(c, (it) => role(it) === 'ingredient' && it.level >= 2 && isOpen(it)) : -1;
+    const raiseTarget = (c) => find(c, (it) => (role(it) === 'ingredient' || role(it) === 'currency') && it.level < maxLevel(it.chain) && isOpen(it));
+    const orbReady = (c) => {
+      const need = {}, missing = [];
+      for (const o of c.s.orders) { if (o.pending) continue; for (const w of o.wants) { const k = w.chain + ':' + w.level; need[k] = (need[k] || 0) + 1; } }
+      for (const k of Object.keys(need)) { const [ch, lv] = k.split(':'); for (let n = c.g.countAll(ch, +lv); n < need[k]; n++) missing.push(k); }
+      return missing.length > 0 && c.g.emptyCount() >= Math.min(missing.length, T.orbMaxItems);
+    };
     const readyOrder = (c) => c.s.orders.some((o) => !o.pending && c.g.canServe(o));
     const toolIdx = (c, chain) => find(c, (it) => it.chain === chain);
     const toolUses = (c, chain) => c.cells.reduce((n, it) => n + (it && it.chain === chain ? (it.uses || 1) : 0), 0);
@@ -75,38 +115,42 @@
         target: (c) => { const p = pair(c); return p ? { sel: sel(p[0]), to: sel(p[1]) } : { sel: sel(machine(c)) }; },
         done: (c) => c.st.merges >= 1 },
       { id: 'orders', intro: true, kind: 'info', tab: 'garden',
-        when: (c) => c.st.merges >= 1 && c.s.orders.some((o) => !o.pending),
+        when: (c) => c.st.merges >= 1 && c.s.orders.some((o) => !o.pending) && !readyOrder(c),
         text: () => 'These customers want items. Green checks show what you already have on the board. Collect what they ask for!',
         target: () => ({ sel: '#orders' }) },
       { id: 'serve', intro: true, kind: 'action', tab: 'garden',
         when: (c) => c.st.served < 1 && readyOrder(c),
-        text: () => 'An order is ready! Tap Serve to hand it over and get paid.',
+        text: () => 'A customer\'s order is ready! Green checks show items you have. Tap Serve to hand it over and get paid.',
         target: () => ({ sel: '.order.ready button[data-serve]' }), done: (c) => c.st.served >= 1 },
       { id: 'reward', intro: true, kind: 'info', tab: 'garden',
         when: (c) => c.st.served >= 1,
         text: () => 'Well done! Customers pay coins, sometimes energy or a smiley review, and every order earns stars that level you up.',
         target: () => ({ sel: '#coins' }) },
 
-      { id: 'sand-near', kind: 'info', tab: 'garden',
-        when: (c) => lockIdx(c, (l) => l.near) >= 0,
-        text: () => 'Sand hides prizes! Merge two items right next to a sand tile to uncover what is buried. It costs nothing.',
-        target: (c) => ({ sel: sel(lockIdx(c, (l) => l.near)) }) },
+      { id: 'sand-near', kind: 'action', tab: 'garden', scripted: true,
+        when: (c) => !!sandPlan(c),
+        text: () => 'Sand hides prizes! I put two items next to it. Drag one onto the other to merge them and uncover what is buried.',
+        snap: (c) => { const p = sandPlan(c); if (p) { c.cells[p.to] = c.g.mk('seed', 1); c.cells[p.from] = c.g.mk('seed', 1); } return p; },
+        target: (c, p) => (p ? { sel: sel(p.from), to: sel(p.to) } : {}),
+        done: (c, p) => !p || !c.s.locks[p.sand] },
       { id: 'sand-energy', kind: 'action', tab: 'garden',
         when: (c) => lockIdx(c, (l) => !l.near && l.cost <= c.s.energy) >= 0,
         text: () => 'Sand with a bolt can be cleared by tapping it. You pay the energy shown. Some hide a gift! Give it a tap.',
         target: (c) => ({ sel: sel(lockIdx(c, (l) => !l.near && l.cost <= c.s.energy)) }),
         snap: (c) => lockIdx(c, (l) => !l.near && l.cost <= c.s.energy), done: (c, sn) => !c.s.locks[sn] },
-      { id: 'web', kind: 'info', tab: 'garden',
-        when: (c) => find(c, (it) => it.web) >= 0,
-        text: () => 'A cobweb! That item is stuck. Merge next to it, or drop a matching item onto it, to free it.',
-        target: (c) => ({ sel: sel(find(c, (it) => it.web)) }) },
+      { id: 'web', kind: 'action', tab: 'garden', scripted: true,
+        when: (c) => !!webPlan(c),
+        text: () => 'A cobweb! That item is stuck. I put a matching item beside it: drag it onto the webbed one to free it.',
+        snap: (c) => { const p = webPlan(c); if (p && p.spawn != null) c.cells[p.spawn] = c.g.mk(p.chain, p.level); return p; },
+        target: (c, p) => (p ? { sel: sel(p.from), to: sel(p.web) } : {}),
+        done: (c, p) => !p || !c.cells[p.web] || !c.cells[p.web].web },
       { id: 'coin', kind: 'action', tab: 'garden',
         when: (c) => find(c, (it) => role(it) === 'currency' && isOpen(it)) >= 0,
         text: () => 'Coins, gems and sparks: tap one to collect it. Merge two alike to make them worth more.',
         target: (c) => ({ sel: sel(find(c, (it) => role(it) === 'currency' && isOpen(it))) }),
         snap: (c) => count(c, (it) => role(it) === 'currency'), done: (c, sn) => count(c, (it) => role(it) === 'currency') < sn },
       { id: 'gift', kind: 'action', tab: 'garden',
-        when: (c) => find(c, (it) => role(it) === 'gift' && !it.unlockAt) >= 0,
+        when: (c) => find(c, (it) => role(it) === 'gift' && !it.unlockAt) >= 0 && !c.cells.some((it) => it && role(it) === 'gift' && it.unlockAt),
         text: () => 'A gift box! Tap it to start opening. Tap it again when it is ready. Gems can speed it up.',
         target: (c) => ({ sel: sel(find(c, (it) => role(it) === 'gift' && !it.unlockAt)) }),
         done: (c) => find(c, (it) => role(it) === 'gift' && !it.unlockAt) < 0 },
@@ -131,15 +175,17 @@
         text: () => 'An item in a bubble! Pay gems to pop it and keep the item, break it for 1 coin, or wait and it bursts into coins.',
         target: (c) => ({ sel: sel(find(c, (it) => it.bubbleUntil)) }) },
       { id: 'scissors', kind: 'action', tab: 'garden',
-        when: (c) => toolIdx(c, 'scissors') >= 0,
-        text: () => 'Scissors! Drag them onto an item to split it into two items one level lower.',
-        target: () => ({ sel: '#board' }), snap: (c) => toolUses(c, 'scissors'), done: (c, sn) => toolUses(c, 'scissors') < sn },
+        when: (c) => toolIdx(c, 'scissors') >= 0 && splitTarget(c) >= 0,
+        text: () => 'Scissors! Drag them onto an item of level 2 or higher to split it into two items one level lower.',
+        target: (c) => ({ sel: sel(toolIdx(c, 'scissors')), to: sel(splitTarget(c)) }),
+        snap: (c) => toolUses(c, 'scissors'), done: (c, sn) => toolUses(c, 'scissors') < sn },
       { id: 'dust', kind: 'action', tab: 'garden',
-        when: (c) => toolIdx(c, 'dust') >= 0,
+        when: (c) => toolIdx(c, 'dust') >= 0 && raiseTarget(c) >= 0,
         text: () => 'The starry teapot! Drag it onto an item to raise it one level. It does not work on machines.',
-        target: () => ({ sel: '#board' }), snap: (c) => toolUses(c, 'dust'), done: (c, sn) => toolUses(c, 'dust') < sn },
+        target: (c) => ({ sel: sel(toolIdx(c, 'dust')), to: sel(raiseTarget(c)) }),
+        snap: (c) => toolUses(c, 'dust'), done: (c, sn) => toolUses(c, 'dust') < sn },
       { id: 'orb', kind: 'action', tab: 'garden',
-        when: (c) => toolIdx(c, 'orb') >= 0,
+        when: (c) => toolIdx(c, 'orb') >= 0 && orbReady(c),
         text: () => 'The wishing teapot! Tap it to receive items your customers are asking for.',
         target: (c) => ({ sel: sel(toolIdx(c, 'orb')) }), snap: (c) => toolUses(c, 'orb'), done: (c, sn) => toolUses(c, 'orb') < sn },
       { id: 'genmerge', kind: 'action', tab: 'garden',
@@ -207,7 +253,7 @@
     ];
 
     // ---- tip selection ---------------------------------------------------------------
-    const introDone = (c) => c.st.merges >= 1 && (seen('orders') || !c.s.orders.some((o) => !o.pending));
+    const introDone = (c) => c.st.merges >= 1 && (seen('orders') || readyOrder(c) || !c.s.orders.some((o) => !o.pending));
     function pick(c) {
       const inModal = modalOpen();
       for (const t of TIPS) {
@@ -216,8 +262,7 @@
         if (t.tab !== 'any' && t.tab !== c.tab) continue;
         if (!t.intro && !introDone(c)) continue;
         if (!t.when(c)) continue;
-        const tg = t.target(c) || {};
-        if (tg.sel && !rectOf(tg.sel)) continue;             // never talk about something that is not on screen
+        if (!t.scripted) { const tg = t.target(c) || {}; if (tg.sel && !rectOf(tg.sel)) continue; if (tg.to && !rectOf(tg.to)) continue; }             // never talk about something that is not on screen
         return t;
       }
       return null;
@@ -277,14 +322,14 @@
     function frame() {
       rafId = 0;
       if (!active || !root) return;
-      const c = ctx(), tg = active.target(c) || {};
+      const c = ctx(), tg = active.target(c, snap) || {};
       const r1 = rectOf(tg.sel), r2 = rectOf(tg.to);
       if (r1) {
         const u = r2 ? { left: Math.min(r1.left, r2.left), top: Math.min(r1.top, r2.top), right: Math.max(r1.right, r2.right), bottom: Math.max(r1.bottom, r2.bottom) } : r1;
         const hole = { left: u.left, top: u.top, width: (u.right !== undefined ? u.right : r1.right) - u.left, height: (u.bottom !== undefined ? u.bottom : r1.bottom) - u.top };
         hole.right = hole.left + hole.width; hole.bottom = hole.top + hole.height;
         setHole(hole, active.kind === 'action');
-        hand.style.cssText = 'display:block;left:' + (r1.left + r1.width * 0.55) + 'px;top:' + (r1.top + r1.height * 0.5) + 'px';
+        hand.style.cssText = (active.kind === 'action' ? 'display:block;' : 'display:none;') + 'left:' + (r1.left + r1.width * 0.55) + 'px;top:' + (r1.top + r1.height * 0.5) + 'px';
         const key = tg.sel + '>' + (tg.to || '');
         if (r2 && key !== dragKey) {
           dragKey = key;
@@ -300,6 +345,7 @@
     function show(t, c) {
       build(); active = t; G.coachActive = true; dragKey = '';
       snap = t.snap ? t.snap(c) : undefined;
+      if (t.scripted) ui.render();
       root.style.display = '';
       bubble.querySelector('p').textContent = t.text(c);
       bubble.querySelector('.co-face').innerHTML = portrait('mabel');

@@ -227,7 +227,7 @@
         '<div class="tray"><div class="wants">' + wants + '</div></div>' +
         (ready ? '<button data-serve="' + o.id + '">Serve</button>' : '') +
         (!ready && unmet === 1 && o.wants.length >= 2 ? '<span class="almost">Almost there!</span>' : '') +
-        (ready && idle && !handShown && (handShown = true) ? '<span class="hint-hand" aria-hidden="true"></span>' : '') + '</div>';
+        (ready && idle && !G.coachActive && !handShown && (handShown = true) ? '<span class="hint-hand" aria-hidden="true"></span>' : '') + '</div>';
     }).join('');
         if (html !== lastOrdersHTML) { const sl = el.orders.scrollLeft; el.orders.innerHTML = html; el.orders.scrollLeft = sl; lastOrdersHTML = html; }
   }

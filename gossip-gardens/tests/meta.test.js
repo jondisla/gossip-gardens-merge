@@ -400,10 +400,11 @@ test('repair finishes: only a finished repair can be styled, and it is remembere
   assert.equal(g.setFinish('g1', 1).ok, false);              // not repaired yet
   g.s.coins = 1000; g.completeChore();
   assert.equal(g.finishOf('g1'), 0);
-  assert.ok(g.setFinish('g1', 1).ok);
-  assert.equal(g.finishOf('g1'), 1);
-  assert.equal(g.setFinish('g1', 5).ok, false);
-  assert.equal(Game.load(g.serialize(), () => g.clock()).finishOf('g1'), 1);
+  assert.ok(g.setFinish('g1', 110).ok);
+  assert.equal(g.finishOf('g1'), 110);
+  assert.equal(g.setFinish('g1', 999).ok, false);
+  assert.equal(g.setFinish('g1', 1.5).ok, false);
+  assert.equal(Game.load(g.serialize(), () => g.clock()).finishOf('g1'), 110);
 });
 
 test('Kitchen Rush: four daily tasks fill from play and pay out; all four unlock a bonus; a new day resets them', () => {

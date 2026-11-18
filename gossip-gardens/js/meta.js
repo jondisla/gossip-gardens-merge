@@ -91,10 +91,10 @@
     this.s.starterStage += 1; this.s.starter = true;
     return { ok: true, reward: n.reward, msg: 'Starter bonus: ' + this.grant(n.reward) };
   };
-  /** Each repair can be finished one of two ways (0 = classic, 1 = twilight). Purely a look. */
+  /** A repair's finish is a colour shift in degrees (0 = classic colours). Purely a look. */
   P.finishOf = function (id) { return (this.s.estate.finish && this.s.estate.finish[id]) || 0; };
   P.setFinish = function (id, n) {
-    if (!this.s.estate.done[id] || (n !== 0 && n !== 1)) return { ok: false };
+    if (!this.s.estate.done[id] || !Number.isInteger(n) || Math.abs(n) > 360) return { ok: false };
     this.s.estate.finish[id] = n;
     return { ok: true };
   };

@@ -208,21 +208,35 @@
     }
 
     // Choose how a repair looks. The dialog cannot be dismissed by tapping outside, so the story always continues.
-    const FINISHES = ['Classic', 'Twilight'];
+    // Three colour choices per repair, like the original's bottom sheet: pick a striped swatch and the piece changes
+    // in the scene right away; the green tick keeps it. The choices are the classic colours plus two random shifts.
+    const HUES = [-150, -110, -70, -35, 35, 70, 110, 150];
+    const swatch = (deg) => '<span class="fs-sw">' + [20, 48, 140, 210].map((h) => '<i style="background:hsl(' + (h + deg + 360) % 360 + ',72%,' + (h === 210 ? 58 : 62) + '%)"></i>').join('') + '</span>';
     function chooseFinish(id, next) {
-      const g = ui.game, t = S.TASKS.find((x) => x.id === id), m = $('modal');
+      const g = ui.game, t = S.TASKS.find((x) => x.id === id);
       let cur = g.finishOf(id);
+      if (cur === 1) cur = 38;
+      const opts = [0];
+      if (cur) opts.push(cur);
+      const pool = HUES.filter((d) => !opts.includes(d));
+      while (opts.length < 3 && pool.length) {
+        const d = pool.splice(Math.floor(Math.random() * pool.length), 1)[0];
+        if (opts.every((o) => Math.abs(o - d) >= 55)) opts.push(d);
+      }
+      document.querySelectorAll('.fin-sheet, .fin-block').forEach((e) => e.remove());
+      const block = document.createElement('div'); block.className = 'fin-block';
+      const sheet = document.createElement('div'); sheet.className = 'fin-sheet'; sheet.setAttribute('role', 'dialog');
       const draw = () => {
-        m.innerHTML = '<div class="card finish" data-lock="1"><h2>Choose a finish</h2><p>' + t.name + '</p><div class="fin-row">' +
-          FINISHES.map((n, f) => '<button class="fin-opt' + (cur === f ? ' on' : '') + '" data-fin="' + f + '"><span class="fin-art">' + plotArt(t.kind, true, undefined, f) + '</span><b>' + n + '</b></button>').join('') +
-          '</div><button class="fin-ok" data-fin-ok="1">Done</button></div>';
-        m.hidden = false;
+        sheet.innerHTML = '<h3>Choose Renovation Colours</h3><p>' + t.name + '</p><div class="fs-row">' +
+          opts.map((d) => '<button class="fs-opt' + (cur === d ? ' on' : '') + '" data-fin="' + d + '" aria-label="Colour set">' + swatch(d) + '</button>').join('') +
+          '</div><button class="fs-ok" data-fin-ok="1" aria-label="Keep these colours">&#10003;</button>';
       };
       draw();
-      m.onclick = (e) => {
+      document.body.appendChild(block); document.body.appendChild(sheet);
+      sheet.onclick = (e) => {
         const o = e.target.closest('[data-fin]');
-        if (o) { ui.audio('tap'); cur = +o.dataset.fin; g.setFinish(id, cur); ui.save(); draw(); return; }
-        if (e.target.closest('[data-fin-ok]')) { m.onclick = null; ui.closeModal(); if (next) next(); }
+        if (o) { ui.audio('tap'); cur = +o.dataset.fin; g.setFinish(id, cur); ui.save(); draw(); renderEstate(); return; }
+        if (e.target.closest('[data-fin-ok]')) { block.remove(); sheet.remove(); ui.audio('claim'); if (next) next(); }
       };
     }
     // Rave Reviews: explains the happy-customers meter and shows its reward.
@@ -318,8 +332,8 @@
       chooseFinish(r.task, () => { renderEstate(); afterRepair(r, task, v); });
     }
     function afterRepair(r, task, v) {
-      const g = ui.game;
-      playScene(r.scene, () => {
+      const g = ui.game, idx = S.TASKS.indexOf(task), beat = idx % 6 === 0 || idx % 6 === 5;   // only a spot's first and last repair have a story scene
+      (beat ? playScene : (sc, cb) => cb())(r.scene, () => {
         const vp = g.viewProgress(v), ap = g.areaProgress(task.area);
         if (ap.done === ap.total) ui.toast(S.AREAS[task.area].name + ' restored!');
         else if (vp.done === vp.total) ui.toast('Spot restored!');
