@@ -17,7 +17,7 @@
   const saved = readSave();
   let game = saved ? Game.load(saved) : new Game();
   let tutorial = null, selected = -1, drag = null, lastBoardHTML = '', tab = 'garden', lastTab = 'garden', screens = null;
-  G.audio.enabled = game.s.settings.sound;
+  G.audio.enabled = game.s.settings.sound; G.audio.music = game.s.settings.music !== false;
 
   const fmt = (ms) => { const s = Math.ceil(ms / 1000); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
   const secs = (ms) => (ms >= 60000 ? fmt(ms) : Math.ceil(ms / 1000) + 's');
@@ -91,6 +91,7 @@
       fsSupported() ? { label: isFs() ? 'Exit full screen' : 'Full screen', cls: 'ghosty', fn: toggleFs } : { label: 'Hide browser bars', cls: 'ghosty', fn: fsHelp },
       { label: 'Replay prologue', cls: 'ghosty', fn: () => { if (screens) screens.playScene('intro'); } },
       { label: G.audio.enabled ? 'Sound: on' : 'Sound: off', cls: 'ghosty', keep: false, fn: toggleSound },
+      { label: G.audio.music ? 'Music: on' : 'Music: off', cls: 'ghosty', keep: false, fn: toggleMusic },
       { label: 'New game', cls: 'alt', fn: confirmReset },
     ]);
     const row = el.modal.querySelector('.row2'); if (row) row.classList.add('stack');
@@ -98,6 +99,9 @@
   function toggleSound() {
     G.audio.enabled = !G.audio.enabled; game.s.settings.sound = G.audio.enabled;
     G.audio.unlock(); play('tap'); writeSave(); renderHud();
+  }
+  function toggleMusic() {
+    G.audio.music = !G.audio.music; game.s.settings.music = G.audio.music; play('tap'); writeSave();
   }
   function confirmReset() {
     modal('Start over?', '<p>This erases your progress on this device.</p>',

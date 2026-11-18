@@ -40,7 +40,7 @@
     s.pass = Object.assign({ xp: 0, free: {}, premium: {}, hasPremium: false }, s.pass || {});
     s.event = Object.assign({ tokens: 0, claimed: {} }, s.event || {});
     s.wheel = Object.assign({ lastFree: '' }, s.wheel || {});
-    s.settings = Object.assign({ sound: true }, s.settings || {});
+    s.settings = Object.assign({ sound: true, music: true }, s.settings || {});
     s.xp = s.xp || 0;
     s.profile = Object.assign({ name: '', id: '', avatar: 'you', frame: 0 }, s.profile || {});
     if (!s.profile.id) { let id = ''; for (let i = 0; i < 8; i++) id += 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 32)]; s.profile.id = id; }
