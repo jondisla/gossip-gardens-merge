@@ -153,7 +153,7 @@
       if (data.level >= 5) this.addTokens(2);
     } else if (type === 'serve') {
       st.served++; this.addXp(20); this.addPlayerXp(12 + 6 * data.order.wants.length);
-      this.s.happy = (this.s.happy || 0) + 1;
+      if (data.order.reward && data.order.reward.smile) this.s.happy = (this.s.happy || 0) + 1;   // only orders that pay a review count
       if (this.s.happy >= HAPPY_GOAL) { this.s.happy = 0; this.note('Happy customers! ' + this.grant(HAPPY_REWARD)); }
       let tk = 3; for (const w of data.order.wants) if (w.level >= 4) tk++;
       this.addTokens(tk);

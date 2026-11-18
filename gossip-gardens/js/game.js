@@ -33,23 +33,42 @@
       Game.fillDefaults(s);
       const g = new Game(s, () => now);
       const put = (r, c, chain, level) => { s.cells[r * T.cols + c] = g.mk(chain, level); };
-      put(0, 1, 'gen_seed', 1); put(0, 2, 'gen_leaf', 1);
-      put(0, 4, 'gen_flour', 1); put(0, 5, 'gen_paper', 1);
+      // Few machines to start with; more arrive with player level, and sometimes drop out of gifts.
+      put(0, 2, 'gen_seed', 1); put(0, 4, 'gen_leaf', 1);
       put(1, 3, 'gen_vine', 1);
       put(3, 1, 'seed', 1); put(3, 2, 'seed', 1); put(3, 4, 'leaf', 1); put(3, 5, 'leaf', 1);
-      put(4, 2, 'flour', 1); put(4, 3, 'flour', 1); put(4, 4, 'paper', 1); put(4, 5, 'paper', 1);
+      put(4, 2, 'seed', 1); put(4, 3, 'seed', 1); put(4, 4, 'leaf', 1); put(4, 5, 'leaf', 1);
       put(5, 3, 'gift', 1); put(5, 1, 'scissors', 1); put(5, 5, 'dust', 1);
-      T.lockedRows.forEach((r) => {
-        for (let c = 0; c < T.cols; c++) {
-          const corner = r === T.rows - 1 && (c === 0 || c === T.cols - 1);
-          s.locks[r * T.cols + c] = { cost: corner ? T.lockCostCorner : T.lockCost[r] };
-        }
-      });
-      Object.keys(T.lockPrizes).forEach((k) => { if (s.locks[k]) s.locks[k].prize = T.lockPrizes[k]; });
-      T.webStart.forEach(([r, c, chain, level]) => { const it = g.mk(chain, level); it.web = true; s.cells[r * T.cols + c] = it; });
+      g.scatterBoard();
       for (let k = 0; k < T.orderSlots; k++) g.addOrder();
       g.rollover();
       return s;
+    }
+
+    /** Scatter energy-sand, merge-to-clear sand and cobwebbed items over the free cells of a new board. */
+    scatterBoard() {
+      const s = this.s, cols = T.cols, core = this.chainPool();
+      const free = [];
+      for (let i = 0; i < N; i++) { const r = Math.floor(i / cols); if (r !== 0 && r !== 2 && !s.cells[i]) free.push(i); }
+      const take = () => free.splice(Math.floor(this.rnd() * free.length), 1)[0];
+      const prizeOf = (table) => {
+        const pick = this.pickWeighted(table);
+        if (!pick) return undefined;
+        if (pick[0] === 'gen') return { chain: 'gen_' + core[Math.floor(this.rnd() * core.length)], level: 1 };
+        return pick[0] === 'core' ? { chain: core[Math.floor(this.rnd() * core.length)], level: pick[1] } : { chain: pick[0], level: pick[1] };
+      };
+      for (let k = 0; k < T.sandEnergy; k++) {
+        const i = take(), r = Math.floor(i / cols);
+        const corner = r === T.rows - 1 && (i % cols === 0 || i % cols === cols - 1);
+        const lock = { cost: corner ? T.lockCostCorner : 20 + 10 * (r >> 1) };
+        const prize = prizeOf(T.lockPrizesEnergy); if (prize) lock.prize = prize;
+        s.locks[i] = lock;
+      }
+      for (let k = 0; k < T.sandNear; k++) { const i = take(); s.locks[i] = { cost: 0, near: true, prize: prizeOf(T.lockPrizesNear) }; }
+      for (let k = 0; k < T.webCount; k++) {
+        const i = take(), it = this.mk(core[Math.floor(this.rnd() * core.length)], this.pickWeighted([[2, 5], [3, 3], [4, 1]]));
+        it.web = true; s.cells[i] = it;
+      }
     }
 
     /** Fill in any fields missing from older saves. meta.js extends this with its own fields. */
@@ -122,12 +141,14 @@
     /** Chains the player has reached (core four, plus those unlocked by player level). */
     chainPool() { const L = this.level(); return INGREDIENT_CHAINS.filter((c) => (CHAIN_UNLOCK[c] || 1) <= L); }
     randomChain() { const p = this.chainPool(); return p[this.rndInt(0, p.length - 1)]; }
+    countMachines(id) { const s = this.s; return s.cells.concat(s.storage || []).filter((c) => c && c.chain === id).length; }
     /** Hand out the first machine of each newly unlocked chain (also fixes up older saves). */
     checkUnlocks() {
       const s = this.s; s.unlocked = s.unlocked || {};
       const L = this.level();
       for (const c of Object.keys(CHAIN_UNLOCK)) {
         if (L < CHAIN_UNLOCK[c] || s.unlocked[c]) continue;
+        if (this.countMachines('gen_' + c)) { s.unlocked[c] = true; continue; }   // already owns one (older saves, or a lucky drop)
         if (this.place(this.mk('gen_' + c, 1), 0) < 0) return; // board full: try again later
         s.unlocked[c] = true;
         this.note('New machine: ' + CHAINS['gen_' + c].names[0] + '!');
@@ -189,12 +210,18 @@
           }
         }
       }
+      // More customers queue up as the player levels up; the customer row scrolls sideways to show them.
+      while (s.orders.length < this.orderSlots()) {
+        s.orders.push({ id: s.nextOrderId++, pending: true, readyAt: now + this.rndInt(T.orderDelayMinMs, T.orderDelayMaxMs) }); changed = true;
+      }
       for (let k = 0; k < s.orders.length; k++) {
         const o = s.orders[k];
         if (o.pending && now >= o.readyAt) { s.orders[k] = this.makeOrder(); changed = true; }
       }
       return changed;
     }
+
+    orderSlots() { const L = this.level(); return T.orderSlots + (L >= 6 ? 1 : 0) + (L >= 10 ? 1 : 0) + (L >= 14 ? 1 : 0); }
 
     // ---- board helpers --------------------------------------------------
     nearestEmpty(from) {
@@ -296,6 +323,17 @@
         const j = r1 * T.cols + c1, o = s.cells[j];
         if (o && o.web) { delete o.web; this.fx.push({ type: 'pop', i: j }); n++; }
       }
+      for (const [dc, dr] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const c1 = c0 + dc, r1 = r0 + dr;
+        if (c1 < 0 || c1 >= T.cols || r1 < 0 || r1 >= T.rows) continue;
+        const j = r1 * T.cols + c1, L = s.locks && s.locks[j];
+        if (L && L.near) {
+          delete s.locks[j];
+          if (L.prize) s.cells[j] = this.mk(L.prize.chain, L.prize.level);
+          this.fx.push({ type: 'pop', i: j }); this.emit('unlock', {});
+          this.note(L.prize ? 'The sand cleared, and something was buried there!' : 'Sand cleared!');
+        }
+      }
       if (n) this.note(n === 1 ? 'Cobweb cleared!' : n + ' cobwebs cleared!');
       return n;
     }
@@ -303,6 +341,7 @@
     unlock(i) {
       const s = this.s, L = s.locks && s.locks[i];
       if (!L) return { ok: false };
+      if (L.near) return { ok: false, msg: 'Merge two items right next to this sand to clear it.' };
       if (!this.spendEnergy(L.cost)) return { ok: false, msg: 'Clearing this tile costs ' + L.cost + ' energy.', needEnergy: true };
       delete s.locks[i];
       if (L.prize) s.cells[i] = this.mk(L.prize.chain, L.prize.level);
@@ -475,7 +514,9 @@
       s.cells[i] = null;
       for (let k = 0; k < n; k++) {
         let item;
-        if (this.rnd() < T.giftToolChance) item = this.mk(this.rnd() < 0.5 ? 'scissors' : 'dust', 1);
+        const owned = this.chainPool().filter((c) => this.countMachines('gen_' + c) < 2);
+        if (owned.length && this.rnd() < T.giftGenChance) item = this.mk('gen_' + owned[Math.floor(this.rnd() * owned.length)], 1);
+        else if (this.rnd() < T.giftToolChance) item = this.mk(this.rnd() < 0.5 ? 'scissors' : 'dust', 1);
         else {
           item = this.mk(this.randomChain(), this.rndInt(1, 3));
           if (this.rnd() < T.bubbleChance) item.bubbleUntil = this.clock() + T.bubbleLifeMs;
@@ -544,8 +585,14 @@
         if (w.level >= 5) gems = 1;
       }
       const folks = (G.STORY && G.STORY.FOLKS) || ['mabel'];
-      return { id: s.nextOrderId++, cust: folks[this.rndInt(0, folks.length - 1)], wants,
-               reward: { coins, energy: Math.max(2, Math.round(ener)), gems, stars: 1 } };
+      // Customers pay in different ways: coins and energy, coins and a good review (smiley), or just coins.
+      const roll = this.rnd(), reward = { coins, energy: 0, gems, stars: 1 };
+      if (roll < 0.45) reward.energy = Math.max(2, Math.round(ener));
+      else if (roll < 0.8) reward.smile = 1;
+      // Prefer someone who is not already waiting, so the same face does not repeat along the counter.
+      const here = new Set(s.orders.filter((o) => !o.pending).map((o) => o.cust));
+      const fresh = folks.filter((f) => !here.has(f)), pool = fresh.length ? fresh : folks;
+      return { id: s.nextOrderId++, cust: pool[this.rndInt(0, pool.length - 1)], wants, reward };
     }
     addOrder() { this.s.orders.push(this.makeOrder()); }
     canServe(order) {

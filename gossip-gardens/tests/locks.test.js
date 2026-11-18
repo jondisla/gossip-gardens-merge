@@ -17,12 +17,34 @@ const { Game, TUNING: T } = loadGG();
 const fresh = () => new Game(Game.newState(1700000000000, 5), () => 1700000000000);
 const C = T.cols;
 
-test('a new game locks the bottom rows and webs a few starter items', () => {
+test('a new game scatters sand and webs over the board, away from rows 0 and 2', () => {
   const g = fresh();
-  assert.equal(Object.keys(g.s.locks).length, T.lockedRows.length * C);
-  assert.equal(g.s.locks[(T.rows - 1) * C].cost, T.lockCostCorner);
-  assert.equal(g.s.locks[7 * C + 3].cost, T.lockCost[7]);
-  assert.equal(g.s.cells.filter((c) => c && c.web).length, T.webStart.length);
+  const keys = Object.keys(g.s.locks).map(Number);
+  assert.equal(keys.length, T.sandEnergy + T.sandNear);
+  assert.equal(keys.filter((i) => g.s.locks[i].near).length, T.sandNear);
+  assert.equal(g.s.cells.filter((c) => c && c.web).length, T.webCount);
+  keys.forEach((i) => { const r = Math.floor(i / C); assert.ok(r !== 0 && r !== 2, 'sand row ' + r); assert.equal(g.s.cells[i], null); });
+  const rows = new Set(keys.map((i) => Math.floor(i / C)));
+  assert.ok(rows.size >= 4, 'sand is spread over several rows');
+  keys.filter((i) => g.s.locks[i].near).forEach((i) => assert.ok(g.s.locks[i].prize, 'near sand hides a prize'));
+});
+
+test('boards differ between seeds', () => {
+  const a = Object.keys(new Game(Game.newState(1700000000000, 5), () => 1).s.locks).join();
+  const b = Object.keys(new Game(Game.newState(1700000000000, 99), () => 1).s.locks).join();
+  assert.notEqual(a, b);
+});
+
+test('near sand costs no energy to tap, but clears and reveals its prize when you merge beside it', () => {
+  const g = fresh();
+  g.s.cells.fill(null); g.s.locks = { 24: { cost: 0, near: true, prize: { chain: 'gift', level: 2 } } };
+  g.s.energy = 100;
+  const r = g.unlock(24);
+  assert.equal(r.ok, false); assert.equal(g.s.energy, 100); assert.ok(g.s.locks[24]);
+  g.s.cells[17] = g.mk('seed', 1); g.s.cells[16] = g.mk('seed', 1);
+  assert.ok(g.move(16, 17).ok);
+  assert.equal(g.s.locks[24], undefined);
+  assert.equal(g.s.cells[24].chain, 'gift'); assert.equal(g.s.cells[24].level, 2);
 });
 
 test('items never land on locked tiles', () => {
@@ -36,14 +58,15 @@ test('items never land on locked tiles', () => {
 test('unlocking costs energy, opens the tile and reveals a prize', () => {
   const g = fresh();
   g.s.cells.fill(null);
-  const plain = 7 * C, prize = Number(Object.keys(T.lockPrizes)[0]);
+  const plain = 7 * C, prize = 7 * C + 1;
+  g.s.locks = { [plain]: { cost: 30 }, [prize]: { cost: 30, prize: { chain: 'gem', level: 1 } } };
   g.s.energy = 20;
   const r = g.unlock(plain);
   assert.equal(r.ok, false); assert.ok(r.needEnergy); assert.ok(g.s.locks[plain]);
   g.s.energy = 100;
   assert.ok(g.unlock(plain).ok);
   assert.equal(g.s.locks[plain], undefined);
-  assert.equal(g.s.energy, 100 - T.lockCost[7]);
+  assert.equal(g.s.energy, 100 - 30);
   assert.ok(g.unlock(prize).ok);
   assert.ok(g.s.cells[prize], 'prize appears');
   assert.equal(g.unlock(prize).ok, false);
@@ -53,6 +76,7 @@ test('you cannot drop an item onto a locked tile', () => {
   const g = fresh();
   g.s.cells.fill(null);
   g.s.cells[0] = g.mk('seed', 1);
+  g.s.locks[7 * C + 1] = { cost: 30 };
   const r = g.move(0, 7 * C + 1);
   assert.equal(r.ok, false);
   assert.ok(g.s.cells[0]);
@@ -106,7 +130,7 @@ test('older saves load with no locked tiles', () => {
 
 test('merging a matching item into a webbed item frees it', () => {
   const g = fresh();
-  g.s.cells.fill(null); g.s.orders = [];
+  g.s.cells.fill(null); g.s.orders = []; g.s.locks = {};
   const w = g.mk('seed', 2); w.web = true;
   g.s.cells[10] = w; g.s.cells[11] = g.mk('seed', 2);
   const r = g.move(11, 10);

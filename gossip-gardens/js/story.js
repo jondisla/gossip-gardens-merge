@@ -17,7 +17,7 @@
                 bio: 'Writes the county\'s sharpest column, The Daily Whisper. Her pencil is mightier than her smile.' },
     you:      { name: 'You',            role: 'New Owner',     skin: '#e2b48c', hair: '#6b4426', style: 'bob',   outfit: 20,  acc: 'none', bio: '' },
   };
-  const FOLKS = ['mabel', 'rufus', 'pippa', 'ivo', 'cordelia'];
+  const FOLKS = ['mabel', 'rufus', 'pippa', 'ivo', 'cordelia', 'boy1', 'girl1', 'boy2', 'girl2'];   // the four kids are customers too
 
   // ---- estate: areas and plots ---------------------------------------------
   const AREAS = [

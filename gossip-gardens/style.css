@@ -1152,3 +1152,176 @@ body[data-tab="garden"] #happy { display: block; }
 #dock #side { position: static; right: auto; top: auto; display: flex; flex-direction: column; align-items: center; gap: 3px; flex: none; z-index: 3; }
 #dock #side .happy { margin: 0; width: 34px; }
 #dock #side .happy svg { width: 34px; height: 34px; }
+
+/* Rave Reviews meter: top right, in its own gutter beside the customers */
+#top #happy { position: absolute; right: 3px; top: 4px; width: 36px; margin: 0; padding: 0; border: 0; background: none; cursor: pointer; pointer-events: auto; z-index: 9; }
+#top #happy svg { width: 36px; height: 36px; }
+#top #orders { padding-right: 42px; }
+#modal .card.reviews { width: min(92vw, 360px); padding: 0; overflow: hidden; border: 4px solid #8a52d0; border-radius: 22px; background: #6d3fb5; text-align: center; position: relative; }
+.rv-title { margin: 0; padding: 12px 10px 10px; background: linear-gradient(#ffd45a, #f4a92b); color: #fff; font-size: 26px; font-weight: 900; text-shadow: 0 2px 0 #b3661a, 0 0 6px rgba(120, 60, 0, .6); }
+.rv-x { position: absolute; right: 6px; top: 6px; width: 30px; height: 30px; border: 2px solid #fff; border-radius: 50%; background: #8a52d0; color: #fff; font-size: 16px; font-weight: 800; cursor: pointer; }
+.rv-bar { position: relative; height: 26px; margin: 12px 14px 4px 38px; border-radius: 13px; background: #4a2680; overflow: visible; }
+.rv-bar i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 13px; background: linear-gradient(#ffd45a, #f0a020); }
+.rv-bar b { position: absolute; inset: 0; line-height: 26px; color: #fff; font-weight: 900; text-shadow: 0 1px 2px #4a2680, 0 0 4px #4a2680; }
+.rv-bar svg { position: absolute; left: -26px; top: -7px; width: 40px; height: 40px; }
+.rv-pic { height: 190px; margin: 6px 14px 0; border-radius: 14px; background: linear-gradient(#ffe9a8, #f6b560); display: flex; align-items: flex-end; justify-content: center; overflow: hidden; }
+.rv-pic .spr { height: 100%; width: auto; object-fit: contain; }
+.rv-text { margin: 10px 18px 6px; color: #fff; font-size: 16px; font-weight: 800; line-height: 1.25; text-shadow: 0 1px 2px rgba(40, 10, 80, .8); }
+.rv-rew { margin: 0 14px 6px; }
+.rv-ok { width: 62%; margin: 4px 0 16px; padding: 10px; border: 3px solid #fff; border-radius: 14px; background: linear-gradient(#4aa8ff, #2a78d8); box-shadow: 0 3px 0 #1a4f98; color: #fff; font: inherit; font-weight: 900; font-size: 20px; cursor: pointer; }
+
+.rv-bar { margin-right: 52px; }
+.rv-gift { position: absolute; right: -48px; top: -12px; width: 46px; height: 46px; padding: 0; border: 0; background: none; cursor: pointer; }
+.rv-gift svg { width: 100%; height: 100%; }
+.rv-bang { position: absolute; right: -2px; top: 0; width: 17px; height: 17px; border-radius: 50%; background: #4a9bff; border: 2px solid #fff; color: #fff; font: 800 11px/13px system-ui; text-align: center; }
+.rv-tip { position: absolute; left: 12px; right: 12px; top: 92px; z-index: 5; display: flex; gap: 8px; align-items: center; padding: 10px 12px; border: 3px solid #fff; border-radius: 16px; background: linear-gradient(135deg, #b54de0, #5a2be0); color: #fff; text-align: center; box-shadow: 0 4px 12px rgba(0, 0, 0, .4); }
+.rv-tip[hidden] { display: none; }
+.rv-tipgift { flex: none; width: 70px; }
+.rv-tip b { display: block; color: #ffd45a; font-size: 18px; font-weight: 900; }
+.rv-tip span { display: block; font-size: 13px; font-weight: 700; margin: 2px 0 4px; }
+
+/* merge-to-clear sand: no price, the buried prize shows faintly through the sand */
+.cell.locked.near .buried { position: absolute; inset: 14%; opacity: .5; filter: saturate(.7) blur(.4px); pointer-events: none; display: flex; align-items: center; justify-content: center; }
+.cell.locked.near .buried .spr, .cell.locked.near .buried svg, .cell.locked.near .buried img { width: 100%; height: 100%; object-fit: contain; }
+
+/* generators: a white sparkle and a little lightning bolt tell them apart from ordinary items */
+.cell .gspark { position: absolute; left: 14%; top: 24%; width: 16px; height: 16px; z-index: 3; pointer-events: none; background: #fff; clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%); filter: drop-shadow(0 0 3px #fff); animation: gsparkle 2.2s ease-in-out infinite; }
+.cell .gbolt { position: absolute; right: 2px; bottom: 2px; width: 20px; height: 20px; z-index: 3; pointer-events: none; filter: drop-shadow(0 1px 1px rgba(0, 0, 0, .45)); }
+@keyframes gsparkle { 0%, 100% { transform: scale(.6); opacity: .6; } 50% { transform: scale(1.1); opacity: 1; } }
+
+/* ---------- Customers sit behind a table: the teal counter hides the torso and holds a flat white tray ---------- */
+#top #orders { display: grid; grid-auto-flow: column; grid-template-columns: none; grid-auto-columns: calc((100% - 12px) / 3); gap: 6px; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; scrollbar-width: none; padding-bottom: 0; }
+#top #orders::-webkit-scrollbar { display: none; }
+#top #orders > .order { scroll-snap-align: start; min-width: 0; }
+.order:not(.waiting)::before {
+  content: ""; position: absolute; left: -4px; right: -4px; top: 66px; bottom: -6px; z-index: 1; pointer-events: none;
+  background: linear-gradient(#8fdcd4, #55b3ad); border-top: 3px solid #b9eee8;
+}
+.order .tray {
+  background: linear-gradient(#ffffff, #f1f5f6); border-radius: 10px; padding: 0 4px; min-height: 28px; margin-top: -6px;
+  border: 2px solid #fff; box-shadow: 0 2px 0 #9db4b4, 0 4px 5px rgba(0, 0, 0, .25);
+  display: flex; align-items: center; justify-content: center; overflow: visible;
+}
+.order .wants { min-height: 0; align-items: center; padding: 0; gap: 2px; }
+.order .want { width: 30px; height: 26px; }
+.order .want .spr { position: absolute; left: 50%; top: 50%; bottom: auto; width: 30px; height: 30px; transform: translate(-50%, -58%); }
+.order .want.have::after { right: -4px; bottom: -3px; }
+.order .reward .rv svg { width: 15px; height: 15px; display: block; }
+
+/* ---------- v14: HUD like the original: avatar, then energy / coins / gems pills of one size, then the cart ---------- */
+#hud { display: flex; align-items: center; gap: 6px; padding: max(6px, env(safe-area-inset-top)) 8px 6px; }
+#hud .lvl { width: 46px; height: 46px; flex: none; margin: 0; }
+#hud .energy, #hud .stat { flex: 1 1 0; width: 0; min-width: 0; height: 32px; box-sizing: border-box; display: flex; align-items: center; justify-content: center; gap: 4px; padding: 0 22px 0 4px; border-radius: 999px; position: relative; }
+#hud .energy { display: flex; }
+#hud .energy .bar { display: none; }
+#hud .energy b, #hud .stat b { flex: 0 1 auto; min-width: 0; text-align: center; font-size: 15px; font-weight: 800; line-height: 1; padding: 0; }
+#hud .energy small { position: absolute; left: 0; right: 0; bottom: -12px; text-align: center; font-size: 9px; font-weight: 800; color: #fff; text-shadow: 0 1px 2px rgba(0, 0, 0, .6); }
+#hud .energy .plus, #hud .stat .plus { position: absolute; right: 3px; top: 50%; transform: translateY(-50%); width: 20px; height: 20px; margin: 0; }
+#hud .stat:not(button) { padding-right: 6px; }
+#hud .cart { flex: none; width: 46px; height: 40px; }
+#hud .energy #boltIco, #hud .stat #coinIco, #hud .stat #gemIco { flex: none; }
+
+/* smiley meter tucks in under the cart, as in the original */
+#top #orders { padding-right: 4px; padding-left: 4px; }
+#top #happy { top: -2px; right: 4px; width: 34px; z-index: 10; }
+#top #happy svg { width: 34px; height: 34px; }
+
+/* the payment pills stack to the right of each customer's face */
+.order:not(.waiting) .cust { justify-content: flex-start; padding-left: 3px; box-sizing: border-box; height: 70px; }
+.order .cust img.spr.portrait, .order:not(.waiting) .cust .spr { height: 70px; }
+.order::before { top: 62px; }
+.order .reward {
+  position: absolute; right: 1px; top: 38px; z-index: 2; margin: 0; width: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 2px;
+  background: none; box-shadow: none; padding: 0; border-radius: 0; overflow: visible;
+}
+.order .reward > span { display: inline-flex; align-items: center; gap: 2px; padding: 0 6px 0 3px; border-radius: 999px; background: rgba(255, 255, 255, .95); box-shadow: 0 1px 3px rgba(0, 0, 0, .3); font-size: 11px; font-weight: 800; line-height: 15px; color: #5b4a1a; }
+.order .reward .ico { width: 13px; height: 13px; }
+.order .reward .rv svg { width: 14px; height: 14px; }
+.order button[data-serve] { top: 4px; left: 2px; }
+.order .almost { top: -6px; }
+
+/* ---------- v15: narrower customer columns (about four and a half fit on screen) with a flat white platter ---------- */
+#top #orders { grid-auto-columns: calc((100% - 18px) / 4.4); justify-content: safe center; gap: 4px; }
+.order:not(.waiting) .cust { height: 64px; padding-left: 0; justify-content: flex-start; }
+.order .cust img.spr.portrait, .order:not(.waiting) .cust .spr { height: 64px; }
+.order::before { top: 58px; }
+.order .tray {
+  min-height: 15px; height: 15px; margin-top: -2px; padding: 0 2px; border-radius: 9px; border: 0; overflow: visible; position: relative;
+  background: linear-gradient(#ffffff, #e9eff0); box-shadow: 0 2px 0 #9db4b4, 0 3px 4px rgba(0, 0, 0, .25);
+  display: flex; align-items: flex-end; justify-content: center;
+}
+.order .wants { align-items: flex-end; gap: 0; }
+.order .want { width: 28px; height: 28px; margin-bottom: -2px; }
+.order .want .spr { width: 28px; height: 28px; top: auto; bottom: 0; transform: translateX(-50%); }
+.order .want.have::after { right: -2px; bottom: -2px; width: 14px; height: 14px; font-size: 10px; }
+.order .reward { right: -2px; top: 32px; }
+.order .reward > span { font-size: 10px; line-height: 14px; padding: 0 5px 0 2px; }
+.order .reward .ico { width: 11px; height: 11px; }
+.order .reward .rv svg { width: 12px; height: 12px; }
+.order button[data-serve] { font-size: 11px; padding: 2px 7px; }
+.order .almost { font-size: 10px; padding: 2px 6px; left: 0; right: auto; }
+.order:not(.waiting)::before { bottom: -6px; }
+#top #orders { padding-top: 14px; }
+.order:not(.waiting) .cust { height: 80px; }
+.order .cust img.spr.portrait, .order:not(.waiting) .cust .spr { height: 80px; }
+.order:not(.waiting)::before { top: 72px; }
+.order .reward { top: 42px; }
+.order .almost { top: -12px; white-space: nowrap; max-width: none; }
+.order button[data-serve] { top: 10px; }
+#top #orders { padding-bottom: 8px; }
+.order:not(.waiting)::before { bottom: 0; }
+.order .tray { margin-top: -6px; }
+/* column width copied from the original: about 19.6% of the screen per customer */
+#top #orders { grid-auto-columns: 19.6%; gap: 0; padding-left: 0; padding-right: 0; }
+.order .tray { margin-left: 3px; margin-right: 3px; }
+
+/* four customers fit on screen, as in the original; swipe for the rest */
+#top #orders { grid-auto-columns: 24%; }
+
+/* up to four customers share the full width; more than that scroll at a quarter of the screen each */
+#top #orders { grid-auto-columns: var(--cw, 24%); justify-content: start; }
+/* one long table: a single teal counter behind every customer, under the trays */
+.order:not(.waiting)::before { display: none; }
+#top::after { content: ""; position: absolute; left: 0; right: 0; top: 86px; bottom: 0; z-index: 1; pointer-events: none;
+  background: linear-gradient(#8fdcd4, #55b3ad); border-top: 3px solid #b9eee8; }
+.order .tray { z-index: 2; }
+.order .reward, .order .almost, .order button[data-serve] { z-index: 3; }
+
+/* customers always keep their quarter-screen width and line up from the left; the table stays empty to the right */
+#top #orders { grid-auto-columns: 24%; justify-content: start; }
+
+/* customer columns are as wide as their order (one item about a fifth of the screen, three items about a third), lined up from the left */
+#top #orders { display: flex; flex-wrap: nowrap; justify-content: flex-start; grid-auto-columns: unset; }
+#top #orders > .order { flex: none; box-sizing: border-box; }
+
+/* ---------- v16: customer row copied from the original: three wide columns, big faces, a long thin tray with items standing on it, counter below ---------- */
+#top #orders { padding: 14px 0 26px 0; display: flex; flex-wrap: nowrap; justify-content: flex-start; }
+#top #orders > .order { flex: none; width: 34%; box-sizing: border-box; }
+.order:not(.waiting) .cust { height: 88px; padding-left: 4px; }
+.order .cust img.spr.portrait, .order:not(.waiting) .cust .spr { height: 88px; }
+.order .tray { margin: -10px 8px 0 8px; height: 22px; min-height: 22px; border-radius: 8px; padding: 0 4px; align-items: center; justify-content: center; z-index: 2; box-shadow: 0 2px 0 #9db4b4, 0 3px 4px rgba(0, 0, 0, .25); }
+.order .wants { align-items: center; gap: 4px; margin-top: -14px; }
+.order .want { width: 28px; height: 28px; margin: 0; }
+.order .want .spr { width: 28px; height: 28px; top: 0; bottom: auto; transform: translateX(-50%); }
+.order .want.have::after { right: -3px; bottom: -3px; }
+#top::after { top: 118px; bottom: 0; border-top: 0; background: linear-gradient(#7fd3cb, #55b3ad); }
+.order .reward { right: 4px; top: 44px; flex-direction: column; align-items: flex-end; gap: 3px; }
+.order .reward > span { background: rgba(70, 60, 90, .45); color: #fff; font-size: 11px; line-height: 15px; padding: 0 6px 0 3px; box-shadow: none; text-shadow: 0 1px 1px rgba(0, 0, 0, .4); }
+.order .reward > span.rv { background: #8650c4; box-shadow: 0 0 0 1.5px #c9a6f0 inset; }
+.order .reward > span.rv::after { content: "+1"; font-weight: 800; }
+.order button[data-serve] { top: 8px; left: 4px; }
+.order .almost { top: -12px; left: 4px; }
+#top #orders { padding-bottom: 14px; }
+.order .tray { margin: -10px 12px 0 12px; }
+.order .reward { top: 30px; right: 6px; }
+
+/* the counter is a tablecloth: the trays rest on it, the customers sit behind it, and its lower edge is scalloped */
+#top { border-bottom: 0; }
+#top #orders { padding-bottom: 24px; }
+#top::after {
+  top: 104px; bottom: 0; border-top: 3px solid #b9eee8;
+  background: linear-gradient(#86d6ce, #55b3ad 70%, #46a29c);
+  -webkit-mask: linear-gradient(#000, #000) top / 100% calc(100% - 7px) no-repeat, radial-gradient(circle 8px at 50% 0, #000 97%, transparent 100%) bottom / 16px 8px repeat-x;
+          mask: linear-gradient(#000, #000) top / 100% calc(100% - 7px) no-repeat, radial-gradient(circle 8px at 50% 0, #000 97%, transparent 100%) bottom / 16px 8px repeat-x;
+}
+.order .tray { margin-top: -4px; }

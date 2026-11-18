@@ -93,6 +93,8 @@
   // Extra profile avatars (not story characters)
   G.avatarExtra = { boy1: P + 'boy_striped_shirt.webp', girl1: P + 'girl_pigtails_yellow_top.webp', boy2: P + 'boy_curly_glasses_hoodie.webp', girl2: P + 'girl_orange_hair_overalls.webp' };
 
+  Object.assign(G.portraitImages, G.avatarExtra);   // the kids queue up as customers as well
+
   // Estate area banners
   Object.assign(G.extraImages, { sand: 'art/extras/sand_tile.webp', cobweb: 'art/extras/cobweb.png', bubble: 'art/extras/bubble.webp', padlock: 'art/extras/padlock.webp', platter: 'art/extras/platter.webp', inventory: 'art/extras/inventory.webp', skip: 'art/extras/icon_skip.webp', journal: 'art/extras/icon_journal.webp', kitchen: 'art/extras/icon_kitchen.webp' });
   // Coin chain: the top two levels are the piggy bank and the mystery chest

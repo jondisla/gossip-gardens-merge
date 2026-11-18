@@ -223,6 +223,24 @@
         if (e.target.closest('[data-fin-ok]')) { m.onclick = null; ui.closeModal(); if (next) next(); }
       };
     }
+    // Rave Reviews: explains the happy-customers meter and shows its reward.
+    function openReviews() {
+      const g = ui.game, hp = g.happyProgress(), m = $('modal');
+      const face = '<svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="17" fill="#ffd45a" stroke="#fff" stroke-width="3"/><circle cx="14.5" cy="17" r="2" fill="#5a3b12"/><circle cx="25.5" cy="17" r="2" fill="#5a3b12"/><path d="M12.5 23.5 Q20 31.5 27.5 23.5" fill="none" stroke="#5a3b12" stroke-width="2.4" stroke-linecap="round"/></svg>';
+      const gift = '<button class="rv-gift" aria-label="What is the reward?"><svg viewBox="0 0 48 48" aria-hidden="true"><rect x="7" y="20" width="34" height="23" rx="3" fill="#43c7a0" stroke="#1f8a6c" stroke-width="2"/><rect x="5" y="15" width="38" height="9" rx="2" fill="#5fe0b8" stroke="#1f8a6c" stroke-width="2"/><path d="M24 15 C14 3 6 10 14 15 Z M24 15 C34 3 42 10 34 15 Z" fill="#ffc83a" stroke="#c98a10" stroke-width="2"/><circle cx="24" cy="31" r="9" fill="#ffd45a" stroke="#fff" stroke-width="1.5"/><circle cx="21" cy="29" r="1.4" fill="#5a3b12"/><circle cx="27" cy="29" r="1.4" fill="#5a3b12"/><path d="M20 33 Q24 37 28 33" fill="none" stroke="#5a3b12" stroke-width="1.6" stroke-linecap="round"/></svg><i class="rv-bang">!</i></button>';
+      m.innerHTML = '<div class="card reviews"><button class="rv-x" aria-label="Close">&#10005;</button><h2 class="rv-title">Rave Reviews</h2>' +
+        '<div class="rv-bar">' + face + '<i style="width:' + Math.round(hp.n / hp.goal * 100) + '%"></i><b>' + hp.n + '/' + hp.goal + '</b>' + gift + '</div>' +
+        '<div class="rv-pic">' + (G.portraitImages && G.portraitImages.you ? '<img class="spr" src="' + G.portraitImages.you + '" alt="" draggable="false">' : '') + '</div>' +
+        '<p class="rv-text">Earn good reviews by serving customers, and win a big reward!</p>' +
+        '<div class="rv-rew">' + rewardHTML(G.HAPPY_REWARD) + '</div><button class="rv-ok">OK</button>' +
+        '<div class="rv-tip" hidden><div class="rv-tipgift">' + gift.replace(/<button[^>]*>|<\/button>|<i[^>]*>.*?<\/i>/g, '') + '</div><div><b>Rave Reviews Reward</b><span>Serve ' + hp.goal + ' customers to earn happy reviews and win coins, a gem and energy.</span></div></div></div>';
+      m.hidden = false;
+      m.onclick = (e) => {
+        const tip = m.querySelector('.rv-tip');
+        if (e.target.closest('.rv-gift')) { tip.hidden = !tip.hidden; return; }
+        if (!tip.hidden) { tip.hidden = true; if (!e.target.closest('.rv-ok') && !e.target.closest('.rv-x')) return; }
+        if (e.target === m || e.target.closest('.rv-ok') || e.target.closest('.rv-x')) { m.onclick = null; ui.closeModal(); } };
+    }
     function openStarter() {
       const g = ui.game;
       ui.modal('Starter Bonus', '<p>A welcome gift for the new gardener of Hollow Rose.</p><p style="text-align:center">' + rewardHTML(G.STARTER_REWARD) + '</p>',
@@ -386,7 +404,7 @@
       else if (tab === 'events') renderEvents();
     }
 
-    return { render, playScene, openProfile };
+    return { render, playScene, openProfile, openReviews };
   }
 
   G.makeScreens = makeScreens;

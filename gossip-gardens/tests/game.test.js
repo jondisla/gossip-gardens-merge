@@ -239,3 +239,22 @@ test('items made by generators, vines, gifts and scissors remember where they ca
   g.place(g.mk('seed', 1), 5);
   assert.equal(g.fx[0].from, undefined);
 });
+
+test('more customers queue up as the player levels up', () => {
+  const g = new Game(Game.newState(1700000000000, 4), () => 1700000000000);
+  assert.equal(g.orderSlots(), T.orderSlots);
+  g.s.xp = 25 * 10 * 9;   // level 10
+  g.tick();
+  assert.equal(g.s.orders.length, T.orderSlots + 2);
+});
+
+test('customers waiting together are all different people, and the kids are included', () => {
+  GG.STORY = GG.STORY || { FOLKS: ['mabel', 'rufus', 'pippa', 'ivo', 'cordelia', 'boy1', 'girl1', 'boy2', 'girl2'] };
+  const g = new Game(Game.newState(1700000000000, 8), () => 1700000000000);
+  g.s.xp = 25 * 14 * 13; g.tick();
+  g.s.orders = [];
+  for (let k = 0; k < 6; k++) g.s.orders.push(g.makeOrder());
+  assert.equal(new Set(g.s.orders.map((o) => o.cust)).size, 6);
+  g.s.orders = []; const seen = new Set(); for (let k = 0; k < 300; k++) seen.add(g.makeOrder().cust);
+  assert.ok(['boy1', 'girl1', 'boy2', 'girl2'].every((id) => seen.has(id)));
+});

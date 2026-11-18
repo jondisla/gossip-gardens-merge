@@ -204,20 +204,24 @@
         return '<div class="want ' + (ok ? 'have' : '') + '" data-chain="' + w.chain + '" data-level="' + w.level + '">' + sprite(w.chain, w.level) + '</div>';
       }).join('');
       const r = o.reward;
-      return '<div class="order ' + (ready ? 'ready' : '') + '" data-oid="' + o.id + '"><div class="cust">' + portrait(o.cust || 'mabel') + '</div>' +
-        '<div class="reward"><span>' + icon('coin') + '+' + r.coins + '</span>' + (r.energy ? '<span>' + icon('bolt') + r.energy + '</span>' : '') + (r.gems ? '<span>' + icon('gem') + r.gems + '</span>' : '') + '</div>' +
+      return '<div class="order ' + (ready ? 'ready' : '') + '" data-oid="' + o.id + '" "><div class="cust">' + portrait(o.cust || 'mabel') + '</div>' +
+        '<div class="reward">' + (r.smile ? '<span class="rv" title="Good review"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="9" fill="#ffd23a" stroke="#e39a12" stroke-width="1.4"/><circle cx="7" cy="8" r="1.3" fill="#5a3b12"/><circle cx="13" cy="8" r="1.3" fill="#5a3b12"/><path d="M5.5 12 Q10 17 14.5 12" fill="none" stroke="#5a3b12" stroke-width="1.5" stroke-linecap="round"/></svg></span>' : '') + '<span>' + icon('coin') + '+' + r.coins + '</span>' + (r.energy ? '<span>' + icon('bolt') + r.energy + '</span>' : '') + (r.gems ? '<span>' + icon('gem') + r.gems + '</span>' : '') + '</div>' +
         '<div class="tray"><div class="wants">' + wants + '</div></div>' +
         (ready ? '<button data-serve="' + o.id + '">Serve</button>' : '') +
         (!ready && unmet === 1 && o.wants.length >= 2 ? '<span class="almost">Almost there!</span>' : '') +
         (ready && idle && !handShown && (handShown = true) ? '<span class="hint-hand" aria-hidden="true"></span>' : '') + '</div>';
     }).join('');
-    if (html !== lastOrdersHTML) { el.orders.innerHTML = html; lastOrdersHTML = html; }
+        if (html !== lastOrdersHTML) { const sl = el.orders.scrollLeft; el.orders.innerHTML = html; el.orders.scrollLeft = sl; lastOrdersHTML = html; }
   }
 
   function cellHTML(i, c, needed) {
     const sel = i === selected ? ' sel' : '';
     const alt = ((i % T.cols) + Math.floor(i / T.cols)) % 2 ? ' alt' : '';
     const lock = game.s.locks && game.s.locks[i];
+    if (lock && lock.near) {
+      const hint = lock.prize ? '<span class="buried">' + sprite(lock.prize.chain, lock.prize.level) + '</span>' : '';
+      return '<div class="cell locked near' + sel + '" data-i="' + i + '"><img class="sand" src="' + G.extraImages.sand + '" alt="" draggable="false">' + hint + '</div>';
+    }
     if (lock) {
       const inner = lock.prize
         ? sprite('coin', 5) + '<b class="lockcost">' + lock.cost + '</b>'
@@ -239,6 +243,7 @@
       if (rem > 0) extra = '<span class="tag">' + secs(rem) + '</span>';
       else { cls += ' gift-ready'; extra = '<span class="tag go">Open!</span>'; }
     } else if (role === 'tool' && c.uses > 1) extra = '<span class="charge">' + c.uses + '</span>';
+    if (role === 'generator') extra += '<i class="gspark"></i><svg class="gbolt" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 1 4 14h6l-2 9 11-14h-6z" fill="#ffd23a" stroke="#fff" stroke-width="1.8" stroke-linejoin="round"/></svg>';
     if (role === 'generator' && c.level > 0) extra += '<span class="gstars">' + '\u2605'.repeat(c.level) + '</span>';
     if (c.web) { cls += ' webbed'; extra += '<img class="web" src="' + G.extraImages.cobweb + '" alt="" draggable="false" style="transform:rotate(' + ((i % 4) * 90) + 'deg)">'; }
     if (needed.has(i) && !c.web) extra += '<i class="chk" title="An order needs this"></i>';
@@ -465,6 +470,7 @@
   $('gemBtn').addEventListener('click', () => showTab('shop'));
   $('cartBtn').addEventListener('click', () => { play('tap'); showTab('shop'); });
   $('repairBtn').addEventListener('click', () => { play('tap'); showTab('estate'); });
+  $('happy').addEventListener('click', () => { play('tap'); screens.openReviews(); });
   $('levelBtn').addEventListener('click', () => { play('tap'); screens.openProfile(); });
   window.addEventListener('pointerdown', () => G.audio.unlock(), { once: true });
 

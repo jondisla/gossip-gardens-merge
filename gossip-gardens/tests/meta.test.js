@@ -345,7 +345,7 @@ test('choreShort is true only while the next chore costs more than the coins you
 
 test('happy meter: every sixth served customer pays a bonus and the meter starts again', () => {
   const g = mk();
-  const order = () => ({ wants: [{ chain: 'seed', level: 1 }] });
+  const order = () => ({ wants: [{ chain: 'seed', level: 1 }], reward: { smile: 1 } });
   assert.deepEqual(g.happyProgress(), { n: 0, goal: 6 });
   for (let k = 1; k <= 5; k++) { g.onEvent('serve', { order: order() }); assert.equal(g.happyProgress().n, k); }
   const gems = g.s.gems, coins = g.s.coins;                 // (level-ups can also pay, so compare from here)
@@ -354,6 +354,18 @@ test('happy meter: every sixth served customer pays a bonus and the meter starts
   assert.equal(g.happyProgress().n, 0);
   assert.ok(g.s.gems >= gems + 1);
   assert.ok(g.notes.some((n) => n.includes('Happy customers')));
+});
+
+test('only customers who pay a review move the happy meter', () => {
+  const g = mk();
+  g.onEvent('serve', { order: { wants: [{ chain: 'seed', level: 1 }], reward: { coins: 5, energy: 2 } } });
+  assert.equal(g.happyProgress().n, 0);
+});
+
+test('orders pay in different ways: some energy, some a review, some coins only', () => {
+  const g = mk(); const seen = { energy: 0, smile: 0, plain: 0 };
+  for (let k = 0; k < 300; k++) { const r = g.makeOrder().reward; if (r.energy) seen.energy++; else if (r.smile) seen.smile++; else seen.plain++; }
+  assert.ok(seen.energy > 50 && seen.smile > 50 && seen.plain > 20, JSON.stringify(seen));
 });
 
 test('free chest: ready at the start, then refills after two hours', () => {

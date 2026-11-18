@@ -10,7 +10,7 @@
   <title>Gossip Gardens</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="style.css?v=78">
+  <link rel="stylesheet" href="style.css?v=101">
 </head>
 <body>
   <div id="app">
@@ -37,6 +37,13 @@
       <section id="screen-garden" class="screen">
         <div id="top">
           <section id="orders" aria-label="Customer orders"></section>
+          <button id="happy" class="happy" aria-label="Rave Reviews: happy customers meter">
+          <svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="16" fill="#fff7d6" stroke="#ecd9a0" stroke-width="4"/>
+            <circle id="happyRing" cx="20" cy="20" r="16" fill="none" stroke="#f2a33a" stroke-width="4" stroke-linecap="round" pathLength="100" stroke-dasharray="100" stroke-dashoffset="100" transform="rotate(-90 20 20)"/>
+            <circle cx="14.5" cy="17" r="2" fill="#5a3b12"/><circle cx="25.5" cy="17" r="2" fill="#5a3b12"/>
+            <path d="M12.5 23.5 Q20 31.5 27.5 23.5" fill="none" stroke="#5a3b12" stroke-width="2.4" stroke-linecap="round"/></svg>
+          <b id="happyNum">0/6</b>
+        </button>
         </div>
         <main id="boardWrap"><div id="board" aria-label="Merge board"></div></main>
         <div id="dock">
@@ -44,13 +51,6 @@
           <section id="info" aria-live="polite"></section>
           <div id="side">
             <button id="boostBtn" class="side-btn" aria-label="Generator booster"></button>
-            <div id="happy" class="happy" role="img" aria-label="Happy customers meter">
-              <svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="16" fill="#fff7d6" stroke="#ecd9a0" stroke-width="4"/>
-                <circle id="happyRing" cx="20" cy="20" r="16" fill="none" stroke="#f2a33a" stroke-width="4" stroke-linecap="round" pathLength="100" stroke-dasharray="100" stroke-dashoffset="100" transform="rotate(-90 20 20)"/>
-                <circle cx="14.5" cy="17" r="2" fill="#5a3b12"/><circle cx="25.5" cy="17" r="2" fill="#5a3b12"/>
-                <path d="M12.5 23.5 Q20 31.5 27.5 23.5" fill="none" stroke="#5a3b12" stroke-width="2.4" stroke-linecap="round"/></svg>
-              <b id="happyNum">0/6</b>
-            </div>
           </div>
           <button id="repairBtn" class="dock-btn" aria-label="Repair the estate"></button>
         </div>
@@ -73,15 +73,15 @@
 
   <noscript>Gossip Gardens needs JavaScript to run.</noscript>
 
-  <script src="js/data.js?v=78"></script>
-  <script src="js/game.js?v=78"></script>
-  <script src="js/story.js?v=78"></script>
-  <script src="js/meta.js?v=78"></script>
-  <script src="js/sprites.js?v=78"></script>
-  <script src="js/portraits.js?v=78"></script>
-  <script src="js/art.js?v=78"></script>
-  <script src="js/audio.js?v=78"></script>
-  <script src="js/screens.js?v=78"></script>
-  <script src="js/ui.js?v=78"></script>
+  <script src="js/data.js?v=101"></script>
+  <script src="js/game.js?v=101"></script>
+  <script src="js/story.js?v=101"></script>
+  <script src="js/meta.js?v=101"></script>
+  <script src="js/sprites.js?v=101"></script>
+  <script src="js/portraits.js?v=101"></script>
+  <script src="js/art.js?v=101"></script>
+  <script src="js/audio.js?v=101"></script>
+  <script src="js/screens.js?v=101"></script>
+  <script src="js/ui.js?v=101"></script>
 </body>
 </html>

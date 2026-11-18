@@ -15,9 +15,9 @@ function loadGG() {
 }
 const { Game, CHAINS, CHAIN_UNLOCK } = loadGG();
 
-test('new players only meet the four core chains', () => {
+test('new players start with just two chains', () => {
   const g = new Game(Game.newState(Date.now(), 3));
-  assert.deepEqual(g.chainPool().sort(), ['flour', 'leaf', 'paper', 'seed']);
+  assert.deepEqual(g.chainPool().sort(), ['leaf', 'seed']);
 });
 
 test('reaching a level unlocks its chain and hands out the first machine once', () => {
@@ -47,7 +47,20 @@ test('a full board delays the machine instead of losing it', () => {
   const g = new Game(Game.newState(Date.now(), 3));
   g.s.cells.fill({ chain: 'seed', level: 1 });
   g.s.xp = 1e6; g.tick();
-  assert.ok(!g.s.unlocked || !g.s.unlocked.garden);
+  assert.ok(!g.s.unlocked || !g.s.unlocked.flour);
   g.s.cells[5] = null; g.tick();
-  assert.ok(g.s.unlocked.garden);
+  assert.ok(g.s.unlocked.flour);
+});
+
+test('a new board starts with only two machines and the vine', () => {
+  const g = new Game(Game.newState(Date.now(), 3));
+  const gens = g.s.cells.filter((c) => c && CHAINS[c.chain].role === 'generator').map((c) => c.chain).sort();
+  assert.deepEqual(gens, ['gen_leaf', 'gen_seed', 'gen_vine']);
+});
+
+test('older saves that already own a machine are not given a second one at the unlock level', () => {
+  const g = new Game(Game.newState(Date.now(), 3));
+  g.s.cells[40] = g.mk('gen_flour', 1);
+  g.s.xp = 1e6; g.tick();
+  assert.equal(g.s.cells.filter((x) => x && x.chain === 'gen_flour').length, 1);
 });
