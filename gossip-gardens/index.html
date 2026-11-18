@@ -10,7 +10,7 @@
   <title>Gossip Gardens</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="style.css?v=77">
+  <link rel="stylesheet" href="style.css?v=78">
 </head>
 <body>
   <div id="app">
@@ -37,6 +37,11 @@
       <section id="screen-garden" class="screen">
         <div id="top">
           <section id="orders" aria-label="Customer orders"></section>
+        </div>
+        <main id="boardWrap"><div id="board" aria-label="Merge board"></div></main>
+        <div id="dock">
+          <button id="storeBtn" class="dock-btn" aria-label="Storage"></button>
+          <section id="info" aria-live="polite"></section>
           <div id="side">
             <button id="boostBtn" class="side-btn" aria-label="Generator booster"></button>
             <div id="happy" class="happy" role="img" aria-label="Happy customers meter">
@@ -47,11 +52,6 @@
               <b id="happyNum">0/6</b>
             </div>
           </div>
-        </div>
-        <main id="boardWrap"><div id="board" aria-label="Merge board"></div></main>
-        <div id="dock">
-          <button id="storeBtn" class="dock-btn" aria-label="Storage"></button>
-          <section id="info" aria-live="polite"></section>
           <button id="repairBtn" class="dock-btn" aria-label="Repair the estate"></button>
         </div>
       </section>
@@ -73,15 +73,15 @@
 
   <noscript>Gossip Gardens needs JavaScript to run.</noscript>
 
-  <script src="js/data.js?v=77"></script>
-  <script src="js/game.js?v=77"></script>
-  <script src="js/story.js?v=77"></script>
-  <script src="js/meta.js?v=77"></script>
-  <script src="js/sprites.js?v=77"></script>
-  <script src="js/portraits.js?v=77"></script>
-  <script src="js/art.js?v=77"></script>
-  <script src="js/audio.js?v=77"></script>
-  <script src="js/screens.js?v=77"></script>
-  <script src="js/ui.js?v=77"></script>
+  <script src="js/data.js?v=78"></script>
+  <script src="js/game.js?v=78"></script>
+  <script src="js/story.js?v=78"></script>
+  <script src="js/meta.js?v=78"></script>
+  <script src="js/sprites.js?v=78"></script>
+  <script src="js/portraits.js?v=78"></script>
+  <script src="js/art.js?v=78"></script>
+  <script src="js/audio.js?v=78"></script>
+  <script src="js/screens.js?v=78"></script>
+  <script src="js/ui.js?v=78"></script>
 </body>
 </html>

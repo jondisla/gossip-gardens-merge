@@ -1147,3 +1147,8 @@ body[data-tab="garden"] #happy { display: block; }
 .happy { width: 36px; margin: 2px auto 0; z-index: 8; }
 .happy svg { width: 36px; height: 36px; }
 .happy b { position: absolute; right: -7px; bottom: -3px; margin: 0; padding: 0 5px; border-radius: 9px; background: #f2a33a; border: 2px solid #fff; color: #fff; font-size: 10px; line-height: 1.3; text-shadow: none; box-shadow: 0 1px 3px rgba(0, 0, 0, .35); }
+
+/* Booster and happy meter live beside the dock button, so the customers stay uncluttered */
+#dock #side { position: static; right: auto; top: auto; display: flex; flex-direction: column; align-items: center; gap: 3px; flex: none; z-index: 3; }
+#dock #side .happy { margin: 0; width: 34px; }
+#dock #side .happy svg { width: 34px; height: 34px; }
