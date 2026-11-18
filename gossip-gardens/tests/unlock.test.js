@@ -64,3 +64,14 @@ test('older saves that already own a machine are not given a second one at the u
   g.s.xp = 1e6; g.tick();
   assert.equal(g.s.cells.filter((x) => x && x.chain === 'gen_flour').length, 1);
 });
+
+test('no machine drops from gifts or sand early in the game', () => {
+  const g = new Game(Game.newState(Date.now(), 3));
+  g.s.cells.fill(null); g.s.orders = [];
+  for (let k = 0; k < 400; k++) {
+    g.s.cells.fill(null);
+    g.s.xp = 0; g.s.cells[0] = { chain: 'gift', level: 1 };
+    g.openGift(0);
+    assert.ok(!g.s.cells.some((c) => c && CHAINS[c.chain].role === 'generator'));
+  }
+});

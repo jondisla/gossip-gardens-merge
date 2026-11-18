@@ -107,7 +107,7 @@ test('merging next to a web clears it', () => {
   g.s.cells[16] = g.mk('seed', 1);
   assert.ok(g.move(16, 17).ok);            // merge in the cell above
   assert.equal(g.s.cells[24].web, undefined);
-  assert.ok(g.notes.some((n) => /cobweb/i.test(n)));
+  assert.ok(g.fx.some((f) => f.type === 'pop' && f.i === 24));   // the pop animation is the feedback
 });
 
 test('a merge far from a web leaves it alone', () => {

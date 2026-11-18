@@ -64,7 +64,7 @@
 
   const INGREDIENT_CHAINS = ['seed', 'leaf', 'flour', 'paper', 'garden', 'tools', 'cafe'];
   // Player level at which a chain joins the game (orders, gifts, vine) and its first machine is given.
-  const CHAIN_UNLOCK = { flour: 2, paper: 3, garden: 4, tools: 6, cafe: 8 };
+  const CHAIN_UNLOCK = { flour: 5, paper: 7, garden: 9, tools: 11, cafe: 13 };
   const GENERATOR_CHAINS = ['gen_seed', 'gen_leaf', 'gen_flour', 'gen_paper', 'gen_garden', 'gen_tools', 'gen_cafe'];
 
   const maxLevel = (chain) => CHAINS[chain].names.length;
@@ -84,6 +84,7 @@
     startCoins: 50,
     startGems: 20,
 
+    generatorCooldown: false,   // true = machines run out of taps and must recharge; false = tap until the board is full or energy is out
     genChargesBase: 6,          // taps before a generator must recharge
     genChargesPerLevel: 2,
     genRechargeMs: 60000,
@@ -124,13 +125,14 @@
     // "energy" sand opens when you tap it and pay energy; its prizes are modest.
     // "near" sand costs nothing: it clears when you merge on a neighbouring cell, and it hides the better prizes.
     // Cobwebbed items clear the same way (merge next to them, or merge a matching item into them).
-    giftGenChance: 0.1,               // a gift sometimes holds a machine for a chain you have reached
+    dropMachinesFromLevel: 6,         // no machine drops at all before this player level
+    giftGenChance: 0.03,              // a gift sometimes holds a machine for a chain you have reached
     sandEnergy: 9,
     sandNear: 8,
     webCount: 6,
     lockCostCorner: 100,              // a bottom-corner energy tile costs extra
     lockPrizesEnergy: [[null, 5], [['coin', 1], 2], [['gem', 1], 1], [['bolt', 1], 1], [['gift', 1], 1]],
-    lockPrizesNear: [[['gift', 1], 3], [['gift', 2], 2], [['gem', 2], 2], [['coin', 3], 2], [['bolt', 2], 2], [['gem', 3], 1], [['scissors', 2], 1], [['core', 3], 3], [['core', 4], 1], [['gen', 1], 2]],
+    lockPrizesNear: [[['gift', 1], 3], [['gift', 2], 2], [['gem', 2], 2], [['coin', 3], 2], [['bolt', 2], 2], [['gem', 3], 1], [['scissors', 2], 1], [['core', 3], 3], [['core', 4], 1], [['gen', 1], 1]],
     starsPerOrderLevel: 6,
     orderDelayMinMs: 6000,      // a replacement customer arrives after this long
     orderDelayMaxMs: 20000,

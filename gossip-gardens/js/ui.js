@@ -28,9 +28,9 @@
   function toast(msg) {
     if (!msg) return;
     el.toast.textContent = msg; el.toast.classList.add('show');
-    clearTimeout(toastTimer); toastTimer = setTimeout(() => el.toast.classList.remove('show'), 2200);
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => el.toast.classList.remove('show'), 1900);
   }
-  function drainNotes() { const n = game.notes.splice(0); if (n.length) { toast(n.join('  |  ')); play('unlock'); } }
+  function drainNotes() { const n = game.notes.splice(0); if (n.length) { toast(n.slice(0, 2).join('  ·  ')); play('unlock'); } }
   function modal(title, html, buttons) {
     el.modal.innerHTML = '<div class="card dlg"><h2>' + title + '</h2>' + html + '<div class="row2"></div></div>';
     const row = el.modal.querySelector('.row2');
@@ -237,7 +237,7 @@
     else if (role === 'generator') {
       if (def.auto) extra = '<span class="tag auto">' + secs(Math.max(0, (c.nextAt || now) - now)) + '</span>';
       else if (c.rechargeAt) { cls += ' recharging'; extra = '<span class="tag">' + secs(c.rechargeAt - now) + '</span>'; }
-      else extra = '<span class="charge">' + c.charges + '</span>';
+      else if (T.generatorCooldown) extra = '<span class="charge">' + c.charges + '</span>';
     } else if (role === 'gift' && c.unlockAt) {
       const rem = c.unlockAt - now;
       if (rem > 0) extra = '<span class="tag">' + secs(rem) + '</span>';
@@ -308,7 +308,7 @@
     if (role === 'generator') {
       if (def.auto) return 'Makes items by itself, free of energy. Merge two to make it faster.';
       return c.rechargeAt ? 'Recharging. Speed up with gems, or wait.' :
-        'Tap to make ' + itemName(def.produces, 1).toLowerCase().replace(/ .*/, '') + ' items. ' + c.charges + ' taps left. Merge two to upgrade it.';
+        'Tap to make ' + itemName(def.produces, 1).toLowerCase().replace(/ .*/, '') + ' items. Merge two to upgrade it.';
     }
     if (role === 'tool') return def.desc + (c.uses > 1 ? ' (' + c.uses + ' uses left)' : '');
     if (role === 'currency') return 'Tap to collect ' + def.payout[c.level - 1] + '. Merge to make a bigger pile.';

@@ -73,8 +73,8 @@ test('merging beside a third matching item gives a bonus coin', () => {
   assert.ok(g.s.cells.some((c) => c && c.chain === 'coin'));
 });
 
-test('generator spends energy, fills nearest empty cell and uses a charge', () => {
-  const g = mk();
+test('generator spends energy, fills nearest empty cell and uses a charge (cooldown mode)', () => {
+  T.generatorCooldown = true; const g = mk();
   g.s.cells[at(0, 0)] = { chain: 'gen_seed', level: 1, charges: GG.genMaxCharges(1) };
   const e0 = g.s.energy;
   const r = g.tap(at(0, 0));
@@ -82,6 +82,16 @@ test('generator spends energy, fills nearest empty cell and uses a charge', () =
   assert.equal(g.s.energy, e0 - 1);
   assert.equal(g.s.cells[at(0, 0)].charges, GG.genMaxCharges(1) - 1);
   assert.equal(g.s.cells.filter(Boolean).length, 2);
+  T.generatorCooldown = false;
+});
+
+test('generators have no cooldown: tap until energy or board space runs out', () => {
+  const g = mk();
+  g.s.cells.fill(null); g.s.cells[0] = { chain: 'gen_seed', level: 1, charges: 6 };
+  g.s.energy = 40;
+  for (let k = 0; k < 25; k++) assert.ok(g.tap(0).ok, 'tap ' + k);
+  assert.equal(g.s.cells[0].rechargeAt, undefined);
+  assert.equal(g.s.energy, 15);
 });
 
 test('full board blocks production and keeps energy', () => {
@@ -112,14 +122,15 @@ test('energy regenerates over time and caps at max', () => {
   assert.equal(g.s.energy, T.energyMax);
 });
 
-test('generator recharges after running out of charges', () => {
-  const g = mk();
+test('generator recharges after running out of charges (cooldown mode)', () => {
+  T.generatorCooldown = true; const g = mk();
   g.s.cells[0] = { chain: 'gen_seed', level: 1, charges: 1 };
   g.tap(0);
   assert.ok(g.s.cells[0].rechargeAt);
   assert.equal(g.tap(0).ok, false);
   g.advance(T.genRechargeMs + 1);
   assert.equal(g.s.cells[0].charges, GG.genMaxCharges(1));
+  T.generatorCooldown = false;
 });
 
 test('currency items pay out when tapped', () => {

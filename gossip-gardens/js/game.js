@@ -54,7 +54,7 @@
       const prizeOf = (table) => {
         const pick = this.pickWeighted(table);
         if (!pick) return undefined;
-        if (pick[0] === 'gen') return { chain: 'gen_' + core[Math.floor(this.rnd() * core.length)], level: 1 };
+        if (pick[0] === 'gen') return this.level() >= T.dropMachinesFromLevel ? { chain: 'gen_' + core[Math.floor(this.rnd() * core.length)], level: 1 } : { chain: core[Math.floor(this.rnd() * core.length)], level: 3 };
         return pick[0] === 'core' ? { chain: core[Math.floor(this.rnd() * core.length)], level: pick[1] } : { chain: pick[0], level: pick[1] };
       };
       for (let k = 0; k < T.sandEnergy; k++) {
@@ -192,7 +192,7 @@
         const c = s.cells[i];
         if (!c) continue;
         const def = CHAINS[c.chain];
-        if (c.rechargeAt && now >= c.rechargeAt) {
+        if (c.rechargeAt && (!T.generatorCooldown || now >= c.rechargeAt)) {
           c.charges = genMaxCharges(c.level); delete c.rechargeAt; changed = true;
         }
         if (c.bubbleUntil && now >= c.bubbleUntil) {
@@ -212,11 +212,11 @@
       }
       // More customers queue up as the player levels up; the customer row scrolls sideways to show them.
       while (s.orders.length < this.orderSlots()) {
-        s.orders.push({ id: s.nextOrderId++, pending: true, readyAt: now + this.rndInt(T.orderDelayMinMs, T.orderDelayMaxMs) }); changed = true;
+        s.orders.push(this.makeOrder()); changed = true;
       }
       for (let k = 0; k < s.orders.length; k++) {
         const o = s.orders[k];
-        if (o.pending && now >= o.readyAt) { s.orders[k] = this.makeOrder(); changed = true; }
+        if (o.pending) { s.orders[k] = this.makeOrder(); changed = true; }   // (older saves may still hold a waiting customer)
       }
       return changed;
     }
@@ -295,7 +295,7 @@
     produce(i) {
       const s = this.s, c = s.cells[i], now = this.clock(), def = CHAINS[c.chain];
       if (def.auto) return { ok: false, msg: 'This one works by itself. Give it a little time.' };
-      if (c.rechargeAt) return { ok: false, msg: 'Recharging. Speed it up with gems, or wait.' };
+      if (T.generatorCooldown && c.rechargeAt) return { ok: false, msg: 'Recharging. Speed it up with gems, or wait.' };
       if (this.nearestEmpty(i) < 0) return { ok: false, msg: 'Board full! Merge, sell or store something.' };
       const freeTap = now < (s.freeTapUntil || 0);
       const mode = this.boostMode();
@@ -307,8 +307,7 @@
         item = this.mk(def.produces, lv);
       }
       this.place(item, i, true);
-      c.charges -= 1;
-      if (c.charges <= 0) c.rechargeAt = now + T.genRechargeMs;
+      if (T.generatorCooldown) { c.charges -= 1; if (c.charges <= 0) c.rechargeAt = now + T.genRechargeMs; }
       this.emit('tap', {});
       return { ok: true, kind: 'spawn' };
     }
@@ -331,17 +330,15 @@
           delete s.locks[j];
           if (L.prize) s.cells[j] = this.mk(L.prize.chain, L.prize.level);
           this.fx.push({ type: 'pop', i: j }); this.emit('unlock', {});
-          this.note(L.prize ? 'The sand cleared, and something was buried there!' : 'Sand cleared!');
         }
       }
-      if (n) this.note(n === 1 ? 'Cobweb cleared!' : n + ' cobwebs cleared!');
       return n;
     }
     /** Tap a locked sand tile: pay its energy price to open it (and receive any hidden prize). */
     unlock(i) {
       const s = this.s, L = s.locks && s.locks[i];
       if (!L) return { ok: false };
-      if (L.near) return { ok: false, msg: 'Merge two items right next to this sand to clear it.' };
+      if (L.near) return { ok: false, msg: 'Merge items near the reward to unlock!' };
       if (!this.spendEnergy(L.cost)) return { ok: false, msg: 'Clearing this tile costs ' + L.cost + ' energy.', needEnergy: true };
       delete s.locks[i];
       if (L.prize) s.cells[i] = this.mk(L.prize.chain, L.prize.level);
@@ -515,7 +512,7 @@
       for (let k = 0; k < n; k++) {
         let item;
         const owned = this.chainPool().filter((c) => this.countMachines('gen_' + c) < 2);
-        if (owned.length && this.rnd() < T.giftGenChance) item = this.mk('gen_' + owned[Math.floor(this.rnd() * owned.length)], 1);
+        if (owned.length && this.level() >= T.dropMachinesFromLevel && this.rnd() < T.giftGenChance) item = this.mk('gen_' + owned[Math.floor(this.rnd() * owned.length)], 1);
         else if (this.rnd() < T.giftToolChance) item = this.mk(this.rnd() < 0.5 ? 'scissors' : 'dust', 1);
         else {
           item = this.mk(this.randomChain(), this.rndInt(1, 3));
@@ -635,7 +632,8 @@
       s.coins += o.reward.coins; this.addEnergy(o.reward.energy); s.gems += o.reward.gems;
       s.stars += o.reward.stars; s.served += 1;
       // The next customer arrives after a short wait.
-      s.orders[idx] = { id: s.nextOrderId++, pending: true, readyAt: this.clock() + this.rndInt(T.orderDelayMinMs, T.orderDelayMaxMs) };
+      s.orders[idx] = { pending: true };         // placeholder so the newcomer is a different face with different wants
+      s.orders[idx] = this.makeOrder();          // the next customer steps up straight away: no waiting period
       this.emit('serve', { order: o });
       return { ok: true, reward: o.reward, msg: 'Order served!' };
     }

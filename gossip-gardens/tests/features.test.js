@@ -163,18 +163,24 @@ test('an auto machine makes items by itself, free of energy, and waits when the 
   assert.equal(g.s.cells.filter((c) => c && c.chain !== 'gen_vine').length, T.cols * T.rows - 1);
 });
 
-test('after serving, the next customer arrives after a short delay', () => {
+test('after serving, the next customer steps up straight away', () => {
   const g = mk();
   g.s.orders = [{ id: 1, cust: 'pippa', wants: [{ chain: 'seed', level: 2 }], reward: { coins: 6, energy: 2, gems: 0, stars: 1 } }];
   g.s.cells[0] = g.mk('seed', 2);
   assert.ok(g.serve(1).ok);
   assert.equal(g.s.orders.length, 1);
-  assert.ok(g.s.orders[0].pending);
-  assert.equal(g.canServe(g.s.orders[0]), false);
-  g.advance(T.orderDelayMaxMs + 1);
   assert.equal(g.s.orders[0].pending, undefined);
   assert.ok(g.s.orders[0].wants.length >= 1);
   assert.ok(g.s.orders[0].cust);
+  assert.notEqual(g.s.orders[0].id, 1);
+});
+
+test('a waiting customer left over from an older save is replaced on the next tick', () => {
+  const g = mk();
+  g.s.orders = [{ id: 7, pending: true, readyAt: g.clock() + 99999 }];
+  g.tick();
+  assert.equal(g.s.orders[0].pending, undefined);
+  assert.ok(g.s.orders[0].wants.length >= 1);
 });
 
 test('items an order needs are marked on the board, one cell per needed item', () => {
