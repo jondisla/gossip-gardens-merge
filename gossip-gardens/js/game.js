@@ -7,6 +7,7 @@
   const N = T.cols * T.rows;
   const CENTER = Math.floor(T.rows / 2) * T.cols + Math.floor(T.cols / 2);
 
+  const hasCooldown = (chain) => T.generatorCooldown || (T.cooldownMachines || []).indexOf(chain) >= 0;
   const genMaxCharges = (level) => T.genChargesBase + T.genChargesPerLevel * (level - 1);
   const isBubble = (c) => !!(c && c.bubbleUntil);
   const roleOf = (c) => CHAINS[c.chain].role;
@@ -18,6 +19,7 @@
       this.s = state || Game.newState(this.clock());
       this.fx = [];     // visual events for the UI: {type, i}
       this.notes = [];  // short messages for the UI to toast (level up, unlocks...)
+      this.popups = []; // bigger celebrations for the UI: {kind: 'newgen' | 'upgrade', chain, level}
     }
 
     static newState(now, seed) {
@@ -29,6 +31,7 @@
         stars: 0, merges: 0, served: 0, xp: 0,
         orders: [], nextOrderId: 1,
         rng: ((seed == null ? now : seed) >>> 0),
+        startedAt: now,
       };
       Game.fillDefaults(s);
       const g = new Game(s, () => now);
@@ -54,7 +57,7 @@
       const prizeOf = (table) => {
         const pick = this.pickWeighted(table);
         if (!pick) return undefined;
-        if (pick[0] === 'gen') return this.level() >= T.dropMachinesFromLevel ? { chain: 'gen_' + core[Math.floor(this.rnd() * core.length)], level: 1 } : { chain: core[Math.floor(this.rnd() * core.length)], level: 3 };
+        if (pick[0] === 'choice') return this.level() >= T.dropMachinesFromLevel ? { chain: 'choice', level: 1 } : { chain: core[Math.floor(this.rnd() * core.length)], level: 3 };
         return pick[0] === 'core' ? { chain: core[Math.floor(this.rnd() * core.length)], level: pick[1] } : { chain: pick[0], level: pick[1] };
       };
       for (let k = 0; k < T.sandEnergy; k++) {
@@ -152,6 +155,7 @@
         if (this.place(this.mk('gen_' + c, 1), 0) < 0) return; // board full: try again later
         s.unlocked[c] = true;
         this.note('New machine: ' + CHAINS['gen_' + c].names[0] + '!');
+        this.popups.push({ kind: 'newgen', chain: 'gen_' + c, level: 1 });
       }
     }
 
@@ -177,6 +181,7 @@
       if (s.energy < n) return false;
       if (s.energy >= T.energyMax) s.energyAt = this.clock();
       s.energy -= n;
+      this.emit('energy', { n });
       return true;
     }
     addEnergy(n) { this.s.energy = Math.min(T.energyOverflowMax, this.s.energy + n); }
@@ -192,7 +197,7 @@
         const c = s.cells[i];
         if (!c) continue;
         const def = CHAINS[c.chain];
-        if (c.rechargeAt && (!T.generatorCooldown || now >= c.rechargeAt)) {
+        if (c.rechargeAt && (!hasCooldown(c.chain) || now >= c.rechargeAt)) {
           c.charges = genMaxCharges(c.level); delete c.rechargeAt; changed = true;
         }
         if (c.bubbleUntil && now >= c.bubbleUntil) {
@@ -221,7 +226,8 @@
       return changed;
     }
 
-    orderSlots() { const L = this.level(); return T.orderSlots + (L >= 6 ? 1 : 0) + (L >= 10 ? 1 : 0) + (L >= 14 ? 1 : 0); }
+    /** Customers join the queue as the manor is repaired (the original asks you to fix the diner to get more customers). */
+    orderSlots() { const n = (this.s.chores && this.s.chores.done) || 0; return T.orderSlots + T.customerRepairs.filter((r) => n >= r).length; }
 
     // ---- board helpers --------------------------------------------------
     nearestEmpty(from) {
@@ -266,14 +272,71 @@
       if (role === 'generator') return this.produce(i);
       if (role === 'currency') return this.collect(i);
       if (role === 'gift') return this.tapGift(i);
+      if (role === 'choice') return this.tapChoice(i);
+      if (role === 'boost') return this.useBoost(i);
       if (role === 'tool') return c.chain === 'orb' ? this.useOrb(i) : { ok: false, msg: 'Drag it onto an item to use it.' };
       return { ok: false, msg: 'Drag it onto a matching item to merge.' };
+    }
+
+    /** Tonic: machines cost no energy for a few minutes. Time bubble: every timer on the board finishes at once. */
+    useBoost(i) {
+      const s = this.s, c = s.cells[i], def = CHAINS[c.chain], now = this.clock();
+      if (def.kind === 'energy') {
+        const mins = def.minutes[Math.min(c.level, def.minutes.length) - 1];
+        s.freeTapUntil = Math.max(now, s.freeTapUntil || 0) + mins * 60000;
+        s.cells[i] = null; this.fx.push({ type: 'collect', i });
+        return { ok: true, kind: 'unlock', msg: 'Machines are free for ' + mins + ' min!' };
+      }
+      let n = 0;
+      s.cells.forEach((it, j) => {
+        if (!it) return;
+        if (CHAINS[it.chain].role === 'gift' && it.unlockAt && it.unlockAt > now) { it.unlockAt = now; n++; this.fx.push({ type: 'pop', i: j }); }
+        if (CHAINS[it.chain].role === 'generator') {
+          if (it.rechargeAt) { delete it.rechargeAt; it.charges = genMaxCharges(it.level); n++; this.fx.push({ type: 'pop', i: j }); }
+          if (CHAINS[it.chain].auto) it.nextAt = now;
+        }
+      });
+      s.cells[i] = null; this.fx.push({ type: 'collect', i });
+      return { ok: true, kind: 'unlock', msg: n ? 'All timers finished!' : 'No timers to speed up.' };
+    }
+    /** The player level a feature opens at, or 0 when it is already open. */
+    featureLocked(name) { const L = (T.featureLevels || {})[name] || 0; return L > this.level() ? L : 0; }
+
+    /** Machine Choice Box: offers up to three machines for chains the player has reached. */
+    choiceOptions() {
+      const pool = this.chainPool().slice();
+      const fresh = pool.filter((c) => this.countMachines('gen_' + c) < 2);
+      const from = (fresh.length ? fresh : pool).slice();
+      const out = [];
+      while (out.length < 3 && from.length) out.push(from.splice(Math.floor(this.rnd() * from.length), 1)[0]);
+      return out;
+    }
+    tapChoice(i) {
+      const c = this.s.cells[i];
+      if (!c.options || !c.options.length) c.options = this.choiceOptions();
+      return { ok: true, kind: 'choice', i, options: c.options.slice() };
+    }
+    pickMachine(i, chain) {
+      const c = this.s.cells[i];
+      if (!c || c.chain !== 'choice' || !(c.options || []).includes(chain)) return { ok: false };
+      this.s.cells[i] = this.mk('gen_' + chain, 1);
+      this.fx.push({ type: 'pop', i });
+      this.popups.push({ kind: 'newgen', chain: 'gen_' + chain, level: 1 });
+      return { ok: true, kind: 'unlock', msg: CHAINS['gen_' + chain].names[0] + '!' };
+    }
+    /** Break a bubble: lose the item inside, gain a coin straight away. */
+    breakBubble(i) {
+      const s = this.s, c = s.cells[i];
+      if (!c || !c.bubbleUntil) return { ok: false };
+      s.cells[i] = null; s.coins += 1;
+      this.fx.push({ type: 'collect', i });
+      return { ok: true, msg: '+1 coin' };
     }
 
     collect(i) {
       const c = this.s.cells[i], def = CHAINS[c.chain];
       const amt = def.payout[Math.min(c.level, def.payout.length) - 1];
-      if (c.chain === 'coin') this.s.coins += amt;
+      if (c.chain === 'coin') { this.s.coins += amt; this.emit('coins', { n: amt }); }
       else if (c.chain === 'gem') this.s.gems += amt;
       else if (c.chain === 'bolt') this.addEnergy(amt);
       this.s.cells[i] = null;
@@ -295,7 +358,7 @@
     produce(i) {
       const s = this.s, c = s.cells[i], now = this.clock(), def = CHAINS[c.chain];
       if (def.auto) return { ok: false, msg: 'This one works by itself. Give it a little time.' };
-      if (T.generatorCooldown && c.rechargeAt) return { ok: false, msg: 'Recharging. Speed it up with gems, or wait.' };
+      if (hasCooldown(c.chain) && c.rechargeAt) return { ok: false, msg: 'Recharging. Speed it up with gems, or wait.' };
       if (this.nearestEmpty(i) < 0) return { ok: false, msg: 'Board full! Merge, sell or store something.' };
       const freeTap = now < (s.freeTapUntil || 0);
       const mode = this.boostMode();
@@ -307,7 +370,7 @@
         item = this.mk(def.produces, lv);
       }
       this.place(item, i, true);
-      if (T.generatorCooldown) { c.charges -= 1; if (c.charges <= 0) c.rechargeAt = now + T.genRechargeMs; }
+      if (hasCooldown(c.chain)) { c.charges -= 1; if (c.charges <= 0) c.rechargeAt = now + T.genRechargeMs; }
       this.emit('tap', {});
       return { ok: true, kind: 'spawn' };
     }
@@ -379,6 +442,7 @@
       s.merges += 1;
       this.fx.push({ type: 'merge', i: to });
       this.clearWebs(to); this.clearWebs(from);
+      if (role === 'generator') this.popups.push({ kind: 'upgrade', chain: a.chain, level: a.level + 1 });
       let bonus = false;
       // Our own rule: merging next to a third matching item absorbs it and drops a bonus coin.
       if (role === 'ingredient' || role === 'currency') {
@@ -405,6 +469,7 @@
 
     // ---- tools ----------------------------------------------------------
     spendUse(i) {
+      this.emit('tool', {});
       const c = this.s.cells[i];
       c.uses -= 1;
       if (c.uses <= 0) this.s.cells[i] = null;
@@ -445,7 +510,7 @@
       if (!missing.length) return { ok: false, msg: 'No order needs anything right now.' };
       const batch = missing.slice(0, T.orbMaxItems);
       if (this.emptyCount() < batch.length + 0) return { ok: false, msg: 'Need ' + batch.length + ' free cells.' };
-      s.cells[i] = null;
+      s.cells[i] = null; this.emit('tool', {});
       for (const m of batch) this.place(this.mk(m.chain, m.level), i, true);
       return { ok: true, kind: 'spawn', msg: 'The orb granted ' + batch.length + ' item' + (batch.length > 1 ? 's' : '') + '!' };
     }
@@ -458,6 +523,7 @@
       if (!c || c.bubbleUntil || roleOf(c) !== 'ingredient') return { ok: false, msg: 'This cannot be sold.' };
       const v = this.sellValue(c);
       this.s.coins += v; this.s.cells[i] = null;
+      this.emit('coins', { n: v });
       return { ok: true, msg: 'Sold for ' + v + ' coins.' };
     }
     storageUsed() { return this.s.storage.filter(Boolean).length; }
@@ -511,8 +577,8 @@
       s.cells[i] = null;
       for (let k = 0; k < n; k++) {
         let item;
-        const owned = this.chainPool().filter((c) => this.countMachines('gen_' + c) < 2);
-        if (owned.length && this.level() >= T.dropMachinesFromLevel && this.rnd() < T.giftGenChance) item = this.mk('gen_' + owned[Math.floor(this.rnd() * owned.length)], 1);
+        if (this.level() >= T.dropMachinesFromLevel && this.rnd() < T.giftChoiceChance) item = this.mk('choice', 1);
+        else if (this.rnd() < T.giftBoostChance) item = this.rnd() < 0.7 ? this.mk('tonic', this.rndInt(1, 2)) : this.mk('timebub', 1);
         else if (this.rnd() < T.giftToolChance) item = this.mk(this.rnd() < 0.5 ? 'scissors' : 'dust', 1);
         else {
           item = this.mk(this.randomChain(), this.rndInt(1, 3));
@@ -629,7 +695,9 @@
         const k = s.storage.findIndex((c) => c && c.chain === w.chain && c.level === w.level);
         if (k >= 0) s.storage[k] = null;
       }
-      s.coins += o.reward.coins; this.addEnergy(o.reward.energy); s.gems += o.reward.gems;
+      const mult = this.frenzyMult ? this.frenzyMult() : 1;          // Flaming Frenzy dish boosters pay extra coins
+      s.coins += Math.round(o.reward.coins * mult); this.addEnergy(o.reward.energy); s.gems += o.reward.gems;
+      this.emit('coins', { n: o.reward.coins });
       s.stars += o.reward.stars; s.served += 1;
       // The next customer arrives after a short wait.
       s.orders[idx] = { pending: true };         // placeholder so the newcomer is a different face with different wants
@@ -656,5 +724,5 @@
     }
   }
 
-  Object.assign(G, { Game, genMaxCharges, isBubble, itemName, xpForLevel });
+  Object.assign(G, { Game, genMaxCharges, hasCooldown, isBubble, itemName, xpForLevel });
 })(typeof globalThis !== 'undefined' ? globalThis : this);

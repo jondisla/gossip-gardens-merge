@@ -29,7 +29,15 @@
     gem:   { id: 'gem',  role: 'currency', hue: 282,
              names: ['Gem', 'Gems', 'Gem Cluster'], payout: [1, 3, 7] },
     bolt:  { id: 'bolt', role: 'currency', hue: 52,
-             names: ['Spark', 'Zap', 'Surge', 'Storm'], payout: [2, 6, 15, 40] },
+             names: ['Spark', 'Zap', 'Surge', 'Storm', 'Mega Bolt'], payout: [2, 6, 15, 40, 100] },
+
+    // Boost items: tap to use. A tonic makes machines free for a while; a time bubble finishes every timer on the board.
+    tonic: { id: 'tonic', role: 'boost', kind: 'energy', hue: 120, minutes: [1, 2, 4, 8, 16],
+             names: ['Perky Tonic', 'Lively Tonic', 'Spry Elixir', 'Vigor Elixir', 'Tireless Elixir'] },
+    timebub: { id: 'timebub', role: 'boost', kind: 'timers', hue: 200, names: ['Time Bubble'] },
+
+    // A box that lets you choose one of three new machines. It is how extra machines turn up besides level unlocks.
+    choice: { id: 'choice', role: 'choice', hue: 280, names: ['Machine Choice Box'] },
 
     gift:  { id: 'gift', role: 'gift', hue: 8,
              names: ['Balloon Bunch', 'Gift Box', 'Festival Crate'] },
@@ -84,7 +92,8 @@
     startCoins: 50,
     startGems: 20,
 
-    generatorCooldown: false,   // true = machines run out of taps and must recharge; false = tap until the board is full or energy is out
+    generatorCooldown: false,   // true = every machine runs out of taps and must recharge; false = only the machines in cooldownMachines do
+    cooldownMachines: ['gen_garden', 'gen_tools', 'gen_cafe'],   // the later machines; the first four never need a rest
     genChargesBase: 6,          // taps before a generator must recharge
     genChargesPerLevel: 2,
     genRechargeMs: 60000,
@@ -126,13 +135,16 @@
     // "near" sand costs nothing: it clears when you merge on a neighbouring cell, and it hides the better prizes.
     // Cobwebbed items clear the same way (merge next to them, or merge a matching item into them).
     dropMachinesFromLevel: 6,         // no machine drops at all before this player level
-    giftGenChance: 0.03,              // a gift sometimes holds a machine for a chain you have reached
+    giftChoiceChance: 0.04,           // a gift sometimes holds a Machine Choice Box (from dropMachinesFromLevel)
+    giftBoostChance: 0.07,            // a gift sometimes holds a tonic or a time bubble
+    featureLevels: { shop: 2, events: 3 },   // buttons that open at this player level ("Unlocks at level N")
+    customerRepairs: [6, 12, 24],     // repairs done for the 4th, 5th and 6th customer to join the queue
     sandEnergy: 9,
     sandNear: 8,
     webCount: 6,
     lockCostCorner: 100,              // a bottom-corner energy tile costs extra
     lockPrizesEnergy: [[null, 5], [['coin', 1], 2], [['gem', 1], 1], [['bolt', 1], 1], [['gift', 1], 1]],
-    lockPrizesNear: [[['gift', 1], 3], [['gift', 2], 2], [['gem', 2], 2], [['coin', 3], 2], [['bolt', 2], 2], [['gem', 3], 1], [['scissors', 2], 1], [['core', 3], 3], [['core', 4], 1], [['gen', 1], 1]],
+    lockPrizesNear: [[['gift', 1], 3], [['gift', 2], 2], [['gem', 2], 2], [['coin', 3], 2], [['bolt', 2], 2], [['gem', 3], 1], [['scissors', 2], 1], [['core', 3], 3], [['core', 4], 1], [['choice', 1], 1], [['tonic', 2], 2], [['timebub', 1], 1]],
     starsPerOrderLevel: 6,
     orderDelayMinMs: 6000,      // a replacement customer arrives after this long
     orderDelayMaxMs: 20000,

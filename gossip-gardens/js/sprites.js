@@ -67,6 +67,20 @@
 
   // ---- art per chain: returns SVG fragment in a 64x64 box -----------------
   const ART = {
+    tonic(L) {
+      const hue = [120, 150, 175, 200, 285][Math.min(L, 5) - 1], big = 0.9 + L * 0.04;
+      return '<g transform="translate(32 34) scale(' + f(big) + ') translate(-32 -34)">' +
+        '<path d="M26 10 h12 v8 q10 6 10 18 q0 14 -16 14 q-16 0 -16 -14 q0 -12 10 -18 z" fill="' + hsl(hue, 65, 62) + '" stroke="' + hsl(hue, 55, 28) + '" stroke-width="2"/>' +
+        '<rect x="25" y="6" width="14" height="7" rx="2" fill="' + hsl(30, 55, 52) + '" stroke="' + hsl(30, 55, 28) + '" stroke-width="1.6"/>' +
+        '<path d="M34 24 L26 36 h6 l-3 10 l10 -14 h-6 z" fill="#ffe14a" stroke="#a86a00" stroke-width="1.4" stroke-linejoin="round"/>' +
+        '<ellipse cx="22" cy="36" rx="2" ry="5" fill="rgba(255,255,255,.5)"/></g>';
+    },
+    timebub() {
+      return '<circle cx="32" cy="33" r="20" fill="rgba(150,210,255,.45)" stroke="' + hsl(205, 70, 55) + '" stroke-width="2.4"/>' +
+        '<circle cx="32" cy="33" r="12" fill="#fffaf0" stroke="' + hsl(30, 45, 40) + '" stroke-width="2"/>' +
+        '<path d="M32 26 V33 L37 36" fill="none" stroke="' + hsl(8, 70, 45) + '" stroke-width="2.4" stroke-linecap="round"/>' +
+        '<ellipse cx="24" cy="23" rx="4" ry="2.4" transform="rotate(-35 24 23)" fill="rgba(255,255,255,.8)"/>';
+    },
     seed(L) {
       const soil = '<ellipse cx="32" cy="52" rx="15" ry="5" fill="' + hsl(25, 38, 36) + '"/>';
       const stem = (y0) => '<path d="M32 50 Q31 ' + f((50 + y0) / 2) + ' 32 ' + y0 + '" stroke="' + hsl(130, 50, 36) + '" stroke-width="3.2" fill="none" stroke-linecap="round"/>';

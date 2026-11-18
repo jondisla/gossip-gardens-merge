@@ -20,6 +20,8 @@
     s.spins = s.spins || 0;
     s.stats = Object.assign({ merges: 0, served: 0, taps: 0, collected: 0, gifts: 0 }, s.stats || {});
     s.estate = Object.assign({ done: {}, seen: {}, finish: {} }, s.estate || {});
+    { const had = !!s.tut; s.tut = Object.assign({ seen: {}, off: false }, s.tut || {});
+      if (!had && (s.stats.merges || 0) >= 15) s.tut.off = true; }   // players who are already well into the game skip the tutorial
     s.happy = s.happy || 0;                                   // customers served towards the next happy-meter bonus
     s.chest = Object.assign({ readyAt: 0 }, s.chest || {});   // the free chest that refills every couple of hours
     s.starter = !!s.starter;                                  // the one-time starter bonus has been claimed
@@ -29,6 +31,10 @@
       n = Math.min(n, S.CHORES.length, S.TASKS.length);
       for (let i = 0; i < n; i++) s.estate.done[S.TASKS[i].id] = true;
       s.chores.done = n; }
+    s.startedAt = s.startedAt || Date.now();   // new games set this from their own clock
+    s.ev = Object.assign({ frenzy: { c: -1, flames: 0 }, goals: { c: -1, n: {}, days: {}, claimed: {}, mClaimed: {}, points: 0 } }, s.ev || {});
+    s.starterStage = s.starterStage != null ? s.starterStage : (s.starter ? 1 : 0);
+    s.rush = Object.assign({ key: '', n: { energy: 0, order: 0, merge: 0, gold: 0 }, claimed: {}, bonus: false }, s.rush || {});
     s.daily = Object.assign({ key: '', streak: 0, lastCheckin: '', checkedToday: false }, s.daily || {});
     s.shop = Object.assign({ key: '', bought: {} }, s.shop || {});
     s.pass = Object.assign({ xp: 0, free: {}, premium: {}, hasPremium: false }, s.pass || {});
@@ -68,11 +74,22 @@
     this.s.chest.readyAt = this.clock() + CHEST_MS;
     return { ok: true, reward: r, msg: 'Free chest: ' + this.grant(r) };
   };
-  P.starterReady = function () { return !this.s.starter; };
+  // The starter bonus is a chain of gifts: the first is yours at once, the rest open as you reach higher player levels.
+  const STARTER_STAGES = [
+    { lv: 1,  reward: STARTER_REWARD },
+    { lv: 5,  reward: { coins: 150, gems: 15, gift: 2 } },
+    { lv: 10, reward: { gems: 25, energy: 60, tool: 'dust' } },
+    { lv: 15, reward: { coins: 400, gems: 30, gift: 3 } },
+  ];
+  G.STARTER_STAGES = STARTER_STAGES;
+  P.starterNext = function () { return STARTER_STAGES[this.s.starterStage] || null; };
+  P.starterReady = function () { const n = this.starterNext(); return !!n && this.level() >= n.lv; };
   P.claimStarter = function () {
-    if (this.s.starter) return { ok: false, msg: 'Already claimed.' };
-    this.s.starter = true;
-    return { ok: true, reward: STARTER_REWARD, msg: 'Starter bonus: ' + this.grant(STARTER_REWARD) };
+    const n = this.starterNext();
+    if (!n) return { ok: false, msg: 'Already claimed.' };
+    if (this.level() < n.lv) return { ok: false, msg: 'Upgrade to level ' + n.lv + ' to unlock the next reward.' };
+    this.s.starterStage += 1; this.s.starter = true;
+    return { ok: true, reward: n.reward, msg: 'Starter bonus: ' + this.grant(n.reward) };
   };
   /** Each repair can be finished one of two ways (0 = classic, 1 = twilight). Purely a look. */
   P.finishOf = function (id) { return (this.s.estate.finish && this.s.estate.finish[id]) || 0; };
@@ -118,6 +135,107 @@
   // ---- time and daily reset ---------------------------------------------------
   P.today = function () { return dayKey(this.clock()); };
 
+  // ---- Timed events: each one repeats on a cycle counted from the day the game was started -----------------
+  const DAY = 86400000, HOUR = 3600000;
+  const EV = {
+    frenzy: { name: 'Flaming Frenzy', cycle: 2 * DAY, duration: 12 * HOUR },
+    goals:  { name: 'Manor Goals',    cycle: 7 * DAY, duration: 7 * DAY },
+  };
+  const FRENZY_TIERS = [{ flames: 150, mult: 1.25, name: 'Silver cloche' }, { flames: 400, mult: 1.5, name: 'Gold cloche' }, { flames: 800, mult: 2, name: 'Royal cloche' }];
+  const GOAL_TASKS = [
+    { id: 'login',  title: 'Play on 7 different days', goal: 7,    points: 150 },
+    { id: 'review', title: 'Collect 25 good reviews',  goal: 25,   points: 200 },
+    { id: 'gold',   title: 'Earn 1500 coins',          goal: 1500, points: 250 },
+    { id: 'tool',   title: 'Use tools 10 times',       goal: 10,   points: 150 },
+    { id: 'serve',  title: 'Serve 25 customers',       goal: 25,   points: 305 },
+  ];
+  const GOAL_MILESTONES = [
+    { points: 150,  reward: { energy: 100 } }, { points: 350, reward: { gift: 2 } }, { points: 600, reward: { energy: 150 } },
+    { points: 850,  reward: { gift: 3, coins: 150 } }, { points: 1055, reward: { gems: 15, tool: 'dust' } },
+  ];
+  G.EV = EV; G.FRENZY_TIERS = FRENZY_TIERS; G.GOAL_TASKS = GOAL_TASKS; G.GOAL_MILESTONES = GOAL_MILESTONES;
+  /** Where an event is in its cycle: {active, c (cycle number), left (ms until it ends, or until it starts again)}. */
+  P.evInfo = function (id) {
+    const e = EV[id], t = Math.max(0, this.clock() - this.s.startedAt), c = Math.floor(t / e.cycle), ph = t - c * e.cycle;
+    return ph < e.duration ? { active: true, c, left: e.duration - ph } : { active: false, c, left: e.cycle - ph };
+  };
+  /** Start fresh counters when a new cycle begins; note today as a day played. Cheap, called often. */
+  P.evSync = function () {
+    const s = this.s, fz = this.evInfo('frenzy'), go = this.evInfo('goals');
+    if (s.ev.frenzy.c !== fz.c) s.ev.frenzy = { c: fz.c, flames: 0 };
+    if (s.ev.goals.c !== go.c) s.ev.goals = { c: go.c, n: {}, days: {}, claimed: {}, mClaimed: {}, points: 0 };
+    const day = Math.floor((this.clock() - s.startedAt) / DAY);
+    if (!s.ev.goals.days[day]) s.ev.goals.days[day] = 1;
+  };
+  P.frenzyTier = function () {
+    this.evSync();
+    if (!this.evInfo('frenzy').active) return -1;
+    let t = -1; FRENZY_TIERS.forEach((x, i) => { if (this.s.ev.frenzy.flames >= x.flames) t = i; });
+    return t;
+  };
+  P.frenzyMult = function () { const t = this.frenzyTier(); return t < 0 ? 1 : FRENZY_TIERS[t].mult; };
+  P.goalCount = function (id) {
+    this.evSync(); const g = this.s.ev.goals;
+    return id === 'login' ? Object.keys(g.days).length : (g.n[id] || 0);
+  };
+  P.goalTasks = function () {
+    this.evSync(); const g = this.s.ev.goals;
+    return GOAL_TASKS.map((t) => { const n = Math.min(this.goalCount(t.id), t.goal); return Object.assign({}, t, { n, done: n >= t.goal, claimed: !!g.claimed[t.id] }); });
+  };
+  P.claimGoal = function (id) {
+    const t = this.goalTasks().find((x) => x.id === id);
+    if (!t || !t.done || t.claimed) return { ok: false };
+    this.s.ev.goals.claimed[id] = true; this.s.ev.goals.points += t.points;
+    return { ok: true, msg: '+' + t.points + ' goal points' };
+  };
+  P.goalMilestoneReady = function (i) { const g = this.s.ev.goals; return !g.mClaimed[i] && g.points >= GOAL_MILESTONES[i].points; };
+  P.claimGoalMilestone = function (i) {
+    if (!this.goalMilestoneReady(i)) return { ok: false };
+    this.s.ev.goals.mClaimed[i] = true;
+    return { ok: true, msg: this.grant(GOAL_MILESTONES[i].reward) };
+  };
+  P.goalsClaimable = function () {
+    if (!this.evInfo('goals').active) return false;
+    return this.goalTasks().some((t) => t.done && !t.claimed) || GOAL_MILESTONES.some((_, i) => this.goalMilestoneReady(i));
+  };
+  P.evCount = function (id, n) { this.evSync(); const g = this.s.ev.goals; g.n[id] = (g.n[id] || 0) + n; };
+
+  // ---- Kitchen Rush: four small daily tasks and a bonus for finishing them all ------------------------
+  const RUSH_KINDS = {
+    energy: { title: (n) => 'Use ' + n + ' energy', goals: [20, 30, 40], reward: (i) => ({ coins: 30 + 10 * i }) },
+    order:  { title: (n) => 'Serve ' + n + ' customers', goals: [3, 4, 5], reward: (i) => ({ energy: 8 + 3 * i }) },
+    merge:  { title: (n) => 'Merge ' + n + ' times', goals: [15, 25, 35], reward: (i) => ({ coins: 25 + 10 * i }) },
+    gold:   { title: (n) => 'Earn ' + n + ' coins', goals: [60, 100, 150], reward: (i) => ({ gems: 1 + (i > 1 ? 1 : 0) }) },
+  };
+  G.RUSH_KINDS = RUSH_KINDS; G.RUSH_BONUS = { gems: 3, coins: 50 };
+  P.rushTasks = function () {
+    const r = this.s.rush, k = this.today();
+    if (r.key !== k) {                                   // a new day: fresh counters and a new difficulty for each task
+      let h = 0; for (const ch of k) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+      r.key = k; r.n = { energy: 0, order: 0, merge: 0, gold: 0 }; r.claimed = {}; r.bonus = false;
+      r.pick = Object.keys(RUSH_KINDS).map((kind, j) => ({ kind, tier: (h >>> (j * 3)) % 3 }));
+    }
+    if (!r.pick) r.pick = Object.keys(RUSH_KINDS).map((kind) => ({ kind, tier: 0 }));
+    return r.pick.map((p, i) => {
+      const def = RUSH_KINDS[p.kind], goal = def.goals[p.tier], n = Math.min(r.n[p.kind] || 0, goal);
+      return { i, kind: p.kind, title: def.title(goal), goal, n, done: n >= goal, claimed: !!r.claimed[i], reward: def.reward(p.tier) };
+    });
+  };
+  P.claimRush = function (i) {
+    const t = this.rushTasks()[i];
+    if (!t || !t.done || t.claimed) return { ok: false };
+    this.s.rush.claimed[i] = true;
+    return { ok: true, msg: this.grant(t.reward) };
+  };
+  P.rushBonusReady = function () { const l = this.rushTasks(); return !this.s.rush.bonus && l.every((t) => t.claimed); };
+  P.claimRushBonus = function () {
+    if (!this.rushBonusReady()) return { ok: false };
+    this.s.rush.bonus = true;
+    return { ok: true, msg: this.grant(G.RUSH_BONUS) };
+  };
+  P.rushClaimable = function () { return this.rushTasks().some((t) => t.done && !t.claimed) || this.rushBonusReady(); };
+  P.rushCount = function (kind, n) { const r = this.s.rush; this.rushTasks(); r.n[kind] = (r.n[kind] || 0) + n; };
+
   P.rollover = function () {
     const d = this.s.daily, k = this.today();
     if (d.key === k) return false;
@@ -149,9 +267,18 @@
   P.onEvent = function (type, data) {
     const st = this.s.stats;
     if (type === 'merge') {
+      this.rushCount('merge', 1);
       st.merges++; this.addXp(1 + (data.level >= 4 ? 2 : 0)); this.addPlayerXp(1 + (data.level >= 4 ? 3 : 0));
       if (data.level >= 5) this.addTokens(2);
+    } else if (type === 'coins') {
+      this.rushCount('gold', data.n); this.evCount('gold', data.n);
+      this.evSync(); if (this.evInfo('frenzy').active) this.s.ev.frenzy.flames += data.n;      // one coin = one flame
+    } else if (type === 'tool') {
+      this.evCount('tool', 1);
+    } else if (type === 'energy') {
+      this.rushCount('energy', data.n);
     } else if (type === 'serve') {
+      this.rushCount('order', 1); this.evCount('serve', 1); if (data.order.reward && data.order.reward.smile) this.evCount('review', 1);
       st.served++; this.addXp(20); this.addPlayerXp(12 + 6 * data.order.wants.length);
       if (data.order.reward && data.order.reward.smile) this.s.happy = (this.s.happy || 0) + 1;   // only orders that pay a review count
       if (this.s.happy >= HAPPY_GOAL) { this.s.happy = 0; this.note('Happy customers! ' + this.grant(HAPPY_REWARD)); }
@@ -292,10 +419,10 @@
     const s = this.s, d = s.daily;
     const ch0 = this.currentChore(), estate = !!(ch0 && s.coins >= ch0.cost) || this.chestReady() || this.starterReady();
     const shop = this.shopFreeReady();
-    const events = this.freeSpinReady() || S.EVENT.milestones.some((m, i) => this.eventClaimable(i)) ||
+    const events = this.goalsClaimable() || this.rushClaimable() || this.freeSpinReady() || S.EVENT.milestones.some((m, i) => this.eventClaimable(i)) ||
       (() => { for (let l = 1; l <= this.passLevel(); l++) if (this.passClaimable(l, 'free') || this.passClaimable(l, 'premium')) return true; return false; })();
     const ch = this.currentChore();
-    return { estate, shop, events, chores: !!(ch && s.coins >= ch.cost) };
+    return { estate, shop: shop && !this.featureLocked('shop'), events: events && !this.featureLocked('events'), chores: !!(ch && s.coins >= ch.cost) };
   };
 
   G.dayKey = dayKey;

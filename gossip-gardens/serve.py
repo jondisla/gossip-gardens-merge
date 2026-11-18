@@ -2,9 +2,10 @@
 
 Like `python -m http.server`, but it tells browsers never to keep old copies, so after an update your phone
 always shows the newest game without having to clear its cache.
-Usage: python serve.py [port]      (default 8080)
+Usage: python serve.py [port] [folder]      (default 8080, folder defaults to where you run it)
 """
 import http.server
+import os
 import socketserver
 import sys
 
@@ -23,6 +24,8 @@ class Server(socketserver.ThreadingTCPServer):
 
 if __name__ == '__main__':
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 8080
+    if len(sys.argv) > 2:
+        os.chdir(sys.argv[2])
     with Server(('0.0.0.0', port), NoCacheHandler) as httpd:
         print('Serving on port', port, '(no caching). Press Ctrl+C to stop.')
         httpd.serve_forever()

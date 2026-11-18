@@ -16,7 +16,7 @@
   function writeSave() { try { localStorage.setItem(SAVE_KEY, game.serialize()); } catch (e) { /* storage blocked */ } }
   const saved = readSave();
   let game = saved ? Game.load(saved) : new Game();
-  let selected = -1, drag = null, lastBoardHTML = '', tab = 'garden', lastTab = 'garden', screens = null;
+  let tutorial = null, selected = -1, drag = null, lastBoardHTML = '', tab = 'garden', lastTab = 'garden', screens = null;
   G.audio.enabled = game.s.settings.sound;
 
   const fmt = (ms) => { const s = Math.ceil(ms / 1000); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
@@ -86,6 +86,7 @@
   function menu() {
     const lp = game.levelProgress();
     modal('Menu', '<p><b>Level ' + lp.level + '</b> <span class="muted">' + lp.into + '/' + lp.need + ' xp to the next level</span></p>', [
+      { label: 'Replay tutorial', cls: 'ghosty', fn: () => { if (tutorial) tutorial.reset(); toast('Tutorial restarted'); } },
       { label: 'How to play', cls: 'ghosty', fn: help },
       fsSupported() ? { label: isFs() ? 'Exit full screen' : 'Full screen', cls: 'ghosty', fn: toggleFs } : { label: 'Hide browser bars', cls: 'ghosty', fn: fsHelp },
       { label: 'Replay prologue', cls: 'ghosty', fn: () => { if (screens) screens.playScene('intro'); } },
@@ -110,10 +111,26 @@
   }
 
   // ---- actions -----------------------------------------------------------
+  // Machine Choice Box: pick one of up to three machines.
+  function openChoice(r) {
+    const btns = r.options.map((ch) => '<button class="mc-opt" data-mc="' + ch + '"><span class="mc-art">' + sprite('gen_' + ch, 1) + '</span><b>' + itemName('gen_' + ch, 1) + '</b></button>').join('');
+    modal('Choose a machine', '<p>Tap the one you want. It will be added to your board.</p><div class="mc-row">' + btns + '</div>', [{ label: 'Later', cls: 'ghosty' }]);
+    el.modal.querySelectorAll('[data-mc]').forEach((b) => { b.onclick = () => { closeModal(); play('claim'); act(() => game.pickMachine(r.i, b.dataset.mc), 'unlock'); }; });
+  }
+  // Bigger celebrations queued by the game: a new machine, or a machine that was upgraded.
+  function drainPopups() {
+    if (!game.popups.length || !el.modal.hidden || tab !== 'garden' || G.coachActive) return;
+    const p = game.popups.shift();
+    play('unlock');
+    modal(p.kind === 'newgen' ? 'New machine!' : 'Machine upgraded!',
+      '<div class="np-art">' + sprite(p.chain, p.level) + '</div><p style="text-align:center"><b>' + itemName(p.chain, p.level) + '</b></p>' +
+      (p.kind === 'newgen' ? '<p style="text-align:center">Tap it to make new items.</p>' : '<p style="text-align:center">It now makes better items.</p>'), [{ label: 'Great!' }]);
+  }
   function act(fn, okSound) {
     const r = fn();
     if (r && r.msg) toast(r.msg);
     if (r && r.needEnergy) offerRefill();
+    if (r && r.ok && r.kind === 'choice') { openChoice(r); return r; }
     if (r) {
       if (r.ok) {
         if (r.kind === 'merge') play('merge', r.level);
@@ -176,6 +193,7 @@
       btn.classList.toggle('dot', t !== tab && !!b[t]);
     });
     $('cartBtn').classList.toggle('dot', !!b.shop);
+    $('cartBtn').classList.toggle('locked', !!game.featureLocked('shop'));
     $('repairBtn').classList.toggle('dot', !!(b.estate || b.events));
   }
 
@@ -237,7 +255,7 @@
     else if (role === 'generator') {
       if (def.auto) extra = '<span class="tag auto">' + secs(Math.max(0, (c.nextAt || now) - now)) + '</span>';
       else if (c.rechargeAt) { cls += ' recharging'; extra = '<span class="tag">' + secs(c.rechargeAt - now) + '</span>'; }
-      else if (T.generatorCooldown) extra = '<span class="charge">' + c.charges + '</span>';
+      else if (G.hasCooldown(c.chain)) extra = '<span class="charge">' + c.charges + '</span>';
     } else if (role === 'gift' && c.unlockAt) {
       const rem = c.unlockAt - now;
       if (rem > 0) extra = '<span class="tag">' + secs(rem) + '</span>';
@@ -304,7 +322,9 @@
   function infoText(c) {
     const def = CHAINS[c.chain], role = def.role;
     if (c.web) return 'Stuck in a cobweb! Drag a matching item onto it to free it, or merge next to it.';
-    if (c.bubbleUntil) return 'Sealed in a bubble. Pay ' + T.bubbleGemCost + ' gems to free it, or wait for it to burst into coins.';
+    if (c.bubbleUntil) return 'Sealed in a bubble. Pay ' + T.bubbleGemCost + ' gems to free it, wait for it to burst into coins, or break it for 1 coin.';
+    if (role === 'choice') return 'Tap to choose one of three new machines!';
+    if (role === 'boost') return CHAINS[c.chain].kind === 'energy' ? 'Tap to use: machines cost no energy for ' + CHAINS[c.chain].minutes[c.level - 1] + ' min. Merge two for longer.' : 'Tap to use: every timer on the board finishes at once!';
     if (role === 'generator') {
       if (def.auto) return 'Makes items by itself, free of energy. Merge two to make it faster.';
       return c.rechargeAt ? 'Recharging. Speed up with gems, or wait.' :
@@ -325,7 +345,9 @@
     }
     const role = CHAINS[c.chain].role, btns = [];
     if (c.web) { /* frozen: no actions */ }
-    else if (c.bubbleUntil) btns.push('<button class="btn alt" data-act="bubble">' + icon('gem') + T.bubbleGemCost + ' Free it</button>');
+    else if (c.bubbleUntil) { btns.push('<button class="btn alt" data-act="bubble">' + icon('gem') + T.bubbleGemCost + ' Free it</button>'); btns.push('<button class="btn ghosty sm" data-act="break">Break +1' + icon('coin') + '</button>'); }
+    else if (role === 'choice') btns.push('<button class="btn" data-act="tap">Choose</button>');
+    else if (role === 'boost') btns.push('<button class="btn" data-act="tap">Use</button>');
     else if (role === 'ingredient') btns.push('<button class="btn blue" data-act="sell">Sell ' + icon('coin') + '+' + game.sellValue(c) + '</button>');
     else if (role === 'currency') btns.push('<button class="btn" data-act="tap">Collect</button>');
     else if (role === 'generator' && !CHAINS[c.chain].auto) {
@@ -398,7 +420,9 @@
       makers = ids.length ? '<h4 class="ci-sub">Generated by:</h4><div class="ci-makers">' +
         ids.map((id) => '<div class="ci-maker"><div class="ci-tile known">' + sprite(id, 1) + '</div><small>' + CHAINS[id].names[0] + '</small></div>').join('') + '</div>' : '';
     } else if (def.role === 'generator') {
-      makers = '<h4 class="ci-sub">Makes:</h4><p class="ci-note">' + (def.produces === '*' ? 'A mix of everything' : CHAINS[def.produces].names[0] + ' items') + '</p>';
+const tbl = T.spawnTable || {}, top = (L) => Math.max.apply(null, (tbl[Math.min(L, 3)] || tbl[3] || [[1]]).map((e) => e[0])), nextL = level + 1;
+      const upg = nextL > def.names.length ? '' : '<p class="ci-note">' + (top(nextL) > top(level) ? 'Merge two to upgrade: a new item will be generated.' : 'Merge two to upgrade: better items become more likely.') + '</p>';
+      makers = '<h4 class="ci-sub">Makes:</h4><p class="ci-note">' + (def.produces === '*' ? 'A mix of everything' : CHAINS[def.produces].names[0] + ' items') + '</p>' + upg;
     }
     el.modal.innerHTML = '<div class="card ci"><div class="ci-head"><span>' + itemName(chain, level) + '</span></div>' +
       '<button class="ci-x" aria-label="Close">&times;</button><h3 class="ci-level">Level ' + level + '</h3>' +
@@ -416,10 +440,15 @@
     const e = game.s.estate;
     return introShown || !!e.seen.intro || Object.keys(e.done || {}).length > 0;
   }
+  const WINDOWS = ['shop', 'events'];
+  let under = 'garden';
   function showTab(name) {
-    if (name !== tab) lastTab = tab;
-    tab = name; document.body.dataset.tab = name;
-    TABS.forEach((t) => { $('screen-' + t).hidden = t !== name; });
+    const lockedAt = game.featureLocked(name === 'shop' ? 'shop' : name === 'events' ? 'events' : '');
+    if (lockedAt) { play('error'); toast('Unlocks at level ' + lockedAt); return; }
+    if (!WINDOWS.includes(name)) under = name; else if (!WINDOWS.includes(tab)) under = tab;
+    lastTab = under;
+    tab = name; document.body.dataset.tab = name; document.body.dataset.under = under;
+    TABS.forEach((t) => { $('screen-' + t).hidden = !(t === name || t === under); });
     if (drag) { if (drag.ghost) drag.ghost.remove(); drag = null; }
     lastBoardHTML = '';
     render();
@@ -439,7 +468,14 @@
   // ---- input: orders, info buttons, header -----------------------------------------
   el.orders.addEventListener('click', (e) => {
     const b = e.target.closest('button[data-serve]');
-    if (b && !b.disabled) { act(() => game.serve(+b.dataset.serve)); return; }
+    if (b && !b.disabled) {
+      const o = game.s.orders.find((x) => x.id === +b.dataset.serve), boardHas = {};
+      let usesStore = false;
+      if (o) for (const w of o.wants) { const k = w.chain + ':' + w.level; boardHas[k] = (boardHas[k] || 0) + 1; if (game.s.cells.filter((c) => c && !c.web && !c.bubbleUntil && c.chain === w.chain && c.level === w.level).length < boardHas[k]) usesStore = true; }
+      if (usesStore) modal('Complete order?', '<p>To finish this order you will use items from your storage.</p>', [{ label: 'Rethink', cls: 'ghosty' }, { label: 'Continue', fn: () => act(() => game.serve(+b.dataset.serve)) }]);
+      else act(() => game.serve(+b.dataset.serve));
+      return;
+    }
     // Tap a wanted item, or the customer, to see where that item comes from.
     const want = e.target.closest('.want'), card = e.target.closest('.order[data-oid]');
     if (want) { play('tap'); openChainInfo(want.dataset.chain, +want.dataset.level); return; }
@@ -455,7 +491,10 @@
     const b = e.target.closest('[data-act]');
     if (!b || selected < 0) return;
     const i = selected, a = b.dataset.act, c = game.s.cells[i];
-    if (a === 'sell') act(() => game.sell(i));
+    if (a === 'sell') {
+      if (c && c.level >= 4) modal('Sell this item?', '<p>' + itemName(c.chain, c.level) + ' is hard to get. Are you sure you want to sell it?</p>', [{ label: 'Keep it', cls: 'ghosty' }, { label: 'Sell', cls: 'alt', fn: () => act(() => game.sell(i)) }]);
+      else act(() => game.sell(i));
+    } else if (a === 'break') modal('Break the bubble?', '<p>You will lose the item inside and get 1 coin. This cannot be undone.</p>', [{ label: 'Cancel', cls: 'ghosty' }, { label: 'Break', cls: 'alt', fn: () => act(() => game.breakBubble(i)) }]);
     else if (a === 'tap') act(() => game.tap(i));
     else if (a === 'speed') act(() => game.speedUp(i));
     else if (a === 'bubble') act(() => game.buyBubble(i));
@@ -541,6 +580,7 @@
     return null;
   }
   function syncHint() {
+    if (G.coachActive) { const old = document.querySelector('.hint-hand.ext'); if (old) old.remove(); return; }   // the tutorial's own hand is showing
     const t = hintTarget(), cur = document.querySelector('.hint-hand.ext');
     if (cur && cur.parentElement === t) return;
     if (cur) cur.remove();
@@ -559,6 +599,7 @@
   // ---- ticking -----------------------------------------------------------
   setInterval(() => {
     const rolled = game.rollover();
+    game.evSync();
     game.tick();
     renderHud(); renderNav();
     if (tab === 'garden') { renderOrders(); renderBoard(); if (!drag) { renderInfo(); renderDock(); } }
@@ -569,22 +610,24 @@
       if (c) { const rd = game.chestReady(); c.classList.toggle('ready', rd); const l = c.querySelector('.ctime'); if (l) l.textContent = rd ? 'Free!' : chestLabel(game.chestMsLeft()); }
     }
     drainNotes();
+    drainPopups();
+    if (tutorial) tutorial.tick();
   }, 500);
   setInterval(writeSave, 5000);
   document.addEventListener('visibilitychange', () => { if (document.hidden) writeSave(); else { game.rollover(); game.tick(); render(); } });
   window.addEventListener('pagehide', writeSave);
 
   // ---- boot --------------------------------------------------------------
-  const ui = { get game() { return game; }, toast, modal, closeModal, menu, chestLabel, act, render, save: writeSave, audio: play, showTab, get lastTab() { return lastTab; } };
+  const ui = { get game() { return game; }, toast, modal, closeModal, menu, chestLabel, act, render, save: writeSave, audio: play, showTab, get lastTab() { return lastTab; }, get tab() { return tab; } };
   window.GG.ui = ui;
   screens = G.makeScreens(ui);
+  tutorial = G.makeTutorial(ui);
 
   $('coinIco').innerHTML = icon('coin'); $('gemIco').innerHTML = icon('gem'); $('boltIco').innerHTML = icon('bolt');
   $('cartBtn').innerHTML = G.extraImages.cart ? '<img class="cart-ico" src="' + G.extraImages.cart + '" alt="" draggable="false">' : '<svg viewBox="0 0 48 40" class="cart-ico"><path d="M3 4 H10 L16 27 H37 L42 11 H12" fill="#fff" stroke="#4aa3d6" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round"/><circle cx="19" cy="34" r="3.5" fill="#f2a33a"/><circle cx="34" cy="34" r="3.5" fill="#f2a33a"/><path d="M18 14 V22 M25 14 V22 M32 14 V22" stroke="#e0a94e" stroke-width="2.4" stroke-linecap="round"/></svg>';
   $('repairBtn').innerHTML = G.extraImages.drill ? '<img class="drill-ico" src="' + G.extraImages.drill + '" alt="" draggable="false">' : '<svg viewBox="0 0 64 64" class="drill-ico" aria-hidden="true"><g transform="rotate(-18 32 32)"><rect x="30" y="34" width="14" height="22" rx="4" fill="#3b3f4a" stroke="#1d2027" stroke-width="2"/><rect x="32" y="38" width="3" height="14" rx="1.5" fill="#6a707e"/><rect x="8" y="16" width="38" height="22" rx="9" fill="#f6c63a" stroke="#8a5d0c" stroke-width="2.4"/><rect x="12" y="19" width="26" height="6" rx="3" fill="#fde98a"/><rect x="38" y="21" width="9" height="12" rx="3" fill="#8e95a6" stroke="#4a5060" stroke-width="2"/><rect x="46" y="24.5" width="12" height="5" rx="2.5" fill="#c9cfdb" stroke="#4a5060" stroke-width="1.6"/><rect x="10" y="30" width="22" height="5" rx="2.5" fill="#d99a14"/></g></svg>'; 
   el.nav.querySelectorAll('button').forEach((b) => { b.insertAdjacentHTML('afterbegin', navIcon(b.dataset.tab)); });
   showTab('garden');
-  if (!saved) setTimeout(help, 400);
 
   if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
     navigator.serviceWorker.register('sw.js').catch(() => { /* offline cache is optional */ });

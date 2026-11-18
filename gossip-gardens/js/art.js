@@ -19,6 +19,7 @@
   chain('tools',  ['screw', 'nuts_bolts', 'wrench', 'handsaw', 'toolbox_open', 'leather_tool_bag']);
   chain('cafe',   ['coffee_beans', 'coffee_cup', 'croissant', 'bread_loaf', 'sandwich', 'pancakes', 'berry_tart', 'layer_cake']);
   chain('gift',  ['balloons', 'gift_box', 'festival_crate']);
+  chain('choice', ['festival_crate']);   // placeholder picture for the Machine Choice Box until it has its own
 
   // Tools (pixel-art teapots)
   ov['dust:1'] = I + 'teapot_purple_pixel.png';   // Starry Teapot: raises an item a level
@@ -72,12 +73,12 @@
   // Where each repair stands: [centre x %, centre y %, width %] of the scene, in task order within the spot.
   // Edit these numbers to move a piece.
   G.repairLayout = [
-    [[55, 89, 36], [48, 66, 36], [55, 43, 36], [68, 27, 34], [30, 27, 34], [50, 12, 34]],   // area 1, spot 1: gate, path, beds, lantern, hedges, porch steps
-    [[50, 47, 36], [50, 25, 34], [20, 44, 34], [66, 34, 34], [34, 34, 34], [80, 45, 34]],   // area 1, spot 2: fountain, roses, wall, lamp, rose path, sign
-    [[45, 25, 36], [48, 47, 40], [86, 47, 34], [14, 43, 34], [22, 68, 34], [50, 75, 34]],   // area 2, spot 1: roof, floor, tables, tea set, lilies, path
-    [[45, 83, 36], [50, 55, 34], [27, 35, 36], [75, 45, 34], [25, 63, 34], [68, 70, 34]],   // area 2, spot 2: arch gate, gravel, benches, lanterns, hydrangeas, sign
+    [[55, 89, 36], [48, 66, 36], [55, 43, 36], [64, 27, 34], [28, 27, 34], [50, 12, 34]],   // area 1, spot 1: gate, path, beds, lantern, hedges, porch steps
+    [[50, 47, 36], [50, 25, 34], [20, 44, 34], [66, 34, 34], [34, 34, 34], [70, 69, 34]],   // area 1, spot 2: fountain, roses, wall, lamp, rose path, sign
+    [[45, 25, 36], [46, 45, 40], [76, 64, 34], [14, 43, 34], [20, 66, 34], [44, 82, 34]],   // area 2, spot 1: roof, floor, tables, tea set, lilies, path
+    [[45, 83, 36], [50, 55, 34], [27, 35, 36], [62, 21, 34], [25, 63, 34], [68, 70, 34]],   // area 2, spot 2: arch gate, gravel, benches, lanterns, hydrangeas, sign
     [[50, 40, 36], [30, 33, 34], [20, 58, 34], [72, 60, 34], [45, 82, 36], [52, 63, 34]],   // area 3, spot 1: press, paper, sign, news, gate, cobbles
-    [[30, 17, 34], [68, 17, 34], [28, 40, 34], [35, 68, 34], [75, 45, 34], [68, 87, 36]],   // area 3, spot 2: lamp, notice board, news stand, ivy, cobbles, final edition
+    [[22, 18, 34], [56, 16, 34], [28, 40, 34], [35, 68, 34], [62, 52, 34], [68, 87, 36]],   // area 3, spot 2: lamp, notice board, news stand, ivy, cobbles, final edition
   ];
 
   // Character portraits (circle-cropped by CSS)

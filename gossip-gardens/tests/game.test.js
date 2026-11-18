@@ -251,12 +251,42 @@ test('items made by generators, vines, gifts and scissors remember where they ca
   assert.equal(g.fx[0].from, undefined);
 });
 
-test('more customers queue up as the player levels up', () => {
+test('more customers join the queue as the manor is repaired', () => {
   const g = new Game(Game.newState(1700000000000, 4), () => 1700000000000);
   assert.equal(g.orderSlots(), T.orderSlots);
-  g.s.xp = 25 * 10 * 9;   // level 10
+  g.s.chores = { done: 12 };
   g.tick();
   assert.equal(g.s.orders.length, T.orderSlots + 2);
+});
+
+test('a Machine Choice Box offers up to three machines and turns into the one you pick', () => {
+  const g = new Game(Game.newState(1700000000000, 4), () => 1700000000000);
+  g.s.xp = 25 * 8 * 7;  // level 8: several chains reached
+  g.s.cells.fill(null); g.s.cells[10] = g.mk('choice', 1);
+  const r = g.tap(10);
+  assert.ok(r.ok && r.kind === 'choice' && r.options.length === 3);
+  assert.equal(g.pickMachine(10, 'garden').ok, false);          // not one of the offered ones
+  const pick = r.options[0];
+  assert.ok(g.pickMachine(10, pick).ok);
+  assert.equal(g.s.cells[10].chain, 'gen_' + pick);
+});
+
+test('breaking a bubble gives one coin at once and removes the item', () => {
+  const g = new Game(Game.newState(1700000000000, 4), () => 1700000000000);
+  g.s.cells.fill(null); const it = g.mk('seed', 3); it.bubbleUntil = g.clock() + 50000; g.s.cells[5] = it;
+  const c0 = g.s.coins;
+  assert.ok(g.breakBubble(5).ok);
+  assert.equal(g.s.cells[5], null); assert.equal(g.s.coins, c0 + 1);
+});
+
+test('only the later machines have a cooldown; the first ones never do', () => {
+  const g = new Game(Game.newState(1700000000000, 4), () => 1700000000000);
+  assert.equal(GG.hasCooldown('gen_seed'), false);
+  assert.equal(GG.hasCooldown('gen_cafe'), true);
+  g.s.cells.fill(null); g.s.cells[0] = g.mk('gen_cafe', 1); g.s.energy = 100;
+  for (let k = 0; k < GG.genMaxCharges(1); k++) assert.ok(g.tap(0).ok);
+  assert.ok(g.s.cells[0].rechargeAt);
+  assert.equal(g.tap(0).ok, false);
 });
 
 test('customers waiting together are all different people, and the kids are included', () => {
@@ -268,4 +298,35 @@ test('customers waiting together are all different people, and the kids are incl
   assert.equal(new Set(g.s.orders.map((o) => o.cust)).size, 6);
   g.s.orders = []; const seen = new Set(); for (let k = 0; k < 300; k++) seen.add(g.makeOrder().cust);
   assert.ok(['boy1', 'girl1', 'boy2', 'girl2'].every((id) => seen.has(id)));
+});
+
+test('a tonic makes machines free for its minutes, and merging two gives a longer one', () => {
+  const g = new Game(Game.newState(1700000000000, 4), () => 1700000000000);
+  g.s.cells.fill(null); g.s.cells[3] = g.mk('tonic', 3);
+  assert.ok(g.tap(3).ok);
+  assert.equal(g.s.cells[3], null);
+  assert.equal(g.s.freeTapUntil, 1700000000000 + 4 * 60000);
+  g.s.cells[5] = g.mk('tonic', 2); g.s.cells[6] = g.mk('tonic', 2);
+  assert.ok(g.move(5, 6).ok);
+  assert.equal(g.s.cells[6].level, 3);
+});
+
+test('a time bubble finishes gift timers and machine recharges on the board', () => {
+  const g = new Game(Game.newState(1700000000000, 4), () => 1700000000000);
+  g.s.cells.fill(null);
+  g.s.cells[1] = Object.assign(g.mk('gift', 1), { unlockAt: 1700000000000 + 99999 });
+  g.s.cells[2] = Object.assign(g.mk('gen_cafe', 1), { rechargeAt: 1700000000000 + 50000, charges: 0 });
+  g.s.cells[4] = g.mk('timebub', 1);
+  assert.ok(g.tap(4).ok);
+  assert.equal(g.s.cells[1].unlockAt, 1700000000000);
+  assert.equal(g.s.cells[2].rechargeAt, undefined);
+  assert.equal(g.s.cells[2].charges, GG.genMaxCharges(1));
+  assert.equal(g.s.cells[4], null);
+});
+
+test('shop and events open at their player levels', () => {
+  const g = new Game(Game.newState(1700000000000, 4), () => 1700000000000);
+  assert.equal(g.featureLocked('shop'), T.featureLevels.shop);
+  g.s.xp = 25 * T.featureLevels.events * (T.featureLevels.events - 1);
+  assert.equal(g.featureLocked('shop'), 0); assert.equal(g.featureLocked('events'), 0);
 });

@@ -24,7 +24,7 @@
   function makeScreens(ui) {
     const $ = (id) => document.getElementById(id);
     const els = { estate: $('screen-estate'), shop: $('screen-shop'), events: $('screen-events') };
-    let justDone = '', estateTab = 'restore', estateView = -1, panning = false, eventsTab = 'pass', wheelRot = 0, wheelBusy = false;
+    let justDone = '', estateTab = 'restore', estateView = -1, panning = false, eventsTab = 'rush', wheelRot = 0, wheelBusy = false;
 
     // ---- story scene player ---------------------------------------------------
     // Characters talk in speech bubbles over the scene (no card). Tap anywhere to continue; earlier lines stay on screen.
@@ -159,7 +159,9 @@
           '</div>' +
           '<button class="rbtn events' + (b.events ? ' dot' : '') + '" data-go="events" aria-label="Events">' + (G.navIcon ? G.navIcon('events') : '') + '</button>' +
           '<div class="rside">' +
-            (g.starterReady() ? '<button class="rside-btn starter" data-starter="1" aria-label="Starter bonus"><img src="art/items/gift_box.webp" alt="" draggable="false"><small>Starter Bonus</small></button>' : '') +
+            (g.starterNext() ? '<button class="rside-btn starter' + (g.starterReady() ? ' ready' : '') + '" data-starter="1" aria-label="Starter bonus"><img src="art/items/gift_box.webp" alt="" draggable="false"><small>' + (g.starterReady() ? 'Claim!' : 'Lv ' + g.starterNext().lv) + '</small></button>' : '') +
+            (g.evInfo('frenzy').active ? '<button class="rside-btn ev frenzy" data-ev="frenzy" aria-label="Flaming Frenzy"><span class="evi">' + FLAME_SVG + '</span><small>' + fmtLeft(g.evInfo('frenzy').left) + '</small></button>' : '') +
+            '<button class="rside-btn ev goals' + (g.goalsClaimable() ? ' ready' : '') + '" data-ev="goals" aria-label="Manor Goals"><span class="evi">' + TROPHY_SVG + '</span><small>' + fmtLeft(g.evInfo('goals').left) + '</small></button>' +
             '<button class="rside-btn chest' + (g.chestReady() ? ' ready' : '') + '" data-chest="1" aria-label="Free chest"><img src="art/items/mystery_chest.webp" alt="" draggable="false"><small class="ctime">' + (g.chestReady() ? 'Free!' : ui.chestLabel(g.chestMsLeft())) + '</small></button>' +
           '</div>' +
           (g.choreShort() ? '<div class="back-arrow" aria-hidden="true"></div>' : '') +
@@ -241,10 +243,69 @@
         if (!tip.hidden) { tip.hidden = true; if (!e.target.closest('.rv-ok') && !e.target.closest('.rv-x')) return; }
         if (e.target === m || e.target.closest('.rv-ok') || e.target.closest('.rv-x')) { m.onclick = null; ui.closeModal(); } };
     }
+
+    // ---- Timed events: Flaming Frenzy, Manor Goals, and the Starter Bonus chain --------------------------
+    const fmtLeft = (ms) => { const m = Math.max(0, Math.ceil(ms / 60000)), d = Math.floor(m / 1440), h = Math.floor((m % 1440) / 60), mi = m % 60; return d ? d + 'd ' + h + 'h' : h ? h + 'h ' + mi + 'm' : mi + 'm'; };
+    const FLAME_SVG = '<svg viewBox="0 0 40 48" aria-hidden="true"><path d="M20 3 C23 12 33 17 33 30 C33 40 27 45 20 45 C13 45 7 40 7 31 C7 24 11 20 13 15 C15 19 16 21 18 22 C17 14 18 8 20 3Z" fill="#ff7a1a" stroke="#c0390f" stroke-width="2" stroke-linejoin="round"/><path d="M20 22 C23 27 27 29 27 35 C27 40 24 42 20 42 C16 42 13 39 13 35 C13 30 17 28 20 22Z" fill="#ffd23a"/></svg>';
+    const CLOCHE = (hue, big) => '<svg viewBox="0 0 64 56" aria-hidden="true"><ellipse cx="32" cy="48" rx="28" ry="6" fill="#e9c46a" stroke="#9a6b12" stroke-width="2"/><path d="M8 46 C8 24 20 14 32 14 C44 14 56 24 56 46 Z" fill="hsl(' + hue + ',55%,' + (big ? 48 : 70) + '%)" stroke="hsl(' + hue + ',45%,25%)" stroke-width="2.4"/><circle cx="32" cy="10" r="4.5" fill="#ffd45a" stroke="#9a6b12" stroke-width="2"/><path d="M16 38 C17 30 21 25 27 22" fill="none" stroke="rgba(255,255,255,.7)" stroke-width="3" stroke-linecap="round"/></svg>';
+    const TROPHY_SVG = '<svg viewBox="0 0 48 48" aria-hidden="true"><path d="M14 8 h20 v12 c0 8 -6 13 -10 13 c-4 0 -10 -5 -10 -13 z" fill="#ffd45a" stroke="#a86a00" stroke-width="2.4" stroke-linejoin="round"/><path d="M14 12 h-6 c0 8 3 11 8 12 M34 12 h6 c0 8 -3 11 -8 12" fill="none" stroke="#a86a00" stroke-width="2.4"/><rect x="21" y="33" width="6" height="6" fill="#d99a14"/><rect x="14" y="39" width="20" height="5" rx="2" fill="#a86a00"/></svg>';
+    const CHAINED_GIFT = '<svg viewBox="0 0 200 150" aria-hidden="true"><ellipse cx="100" cy="128" rx="88" ry="16" fill="#d12f78"/><ellipse cx="100" cy="122" rx="80" ry="12" fill="#ff5fa0"/><rect x="62" y="56" width="76" height="62" rx="6" fill="#ffb02e" stroke="#c96f00" stroke-width="3"/><rect x="94" y="56" width="12" height="62" fill="#9b4be0"/><rect x="62" y="80" width="76" height="12" fill="#9b4be0" opacity=".85"/><path d="M100 56 C80 30 58 44 74 56 Z M100 56 C120 30 142 44 126 56 Z" fill="#ffd45a" stroke="#c96f00" stroke-width="3"/><path d="M52 104 L148 70 M52 70 L148 104" stroke="#aeb7c4" stroke-width="7" stroke-linecap="round"/><path d="M52 104 L148 70 M52 70 L148 104" stroke="#e8edf4" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="7 6"/><rect x="82" y="78" width="36" height="30" rx="7" fill="#ffc83a" stroke="#a86a00" stroke-width="3"/><path d="M90 78 v-8 a10 10 0 0 1 20 0 v8" fill="none" stroke="#a86a00" stroke-width="5"/><circle cx="100" cy="92" r="4" fill="#7a4a00"/></svg>';
+
+    function evWindow(cls, title, timerMs, bodyHTML, footerHTML, infoText, onClick) {
+      const m = $('modal');
+      m.innerHTML = '<div class="card evw ' + cls + '"><button class="evw-i" data-evi="1" aria-label="How it works">i</button><button class="evw-x" data-evx="1" aria-label="Close">&times;</button>' +
+        '<div class="evw-ribbon"><b>' + title + '</b></div>' + (timerMs != null ? '<div class="evw-timer"><span class="clk"></span>' + fmtLeft(timerMs) + '</div>' : '') +
+        '<div class="evw-body">' + bodyHTML + '</div>' + (footerHTML || '') + '<div class="evw-info" hidden>' + (infoText || '') + '</div></div>';
+      m.hidden = false;
+      m.onclick = (e) => {
+        if (e.target.closest('[data-evx]') || e.target === m) { m.onclick = null; ui.closeModal(); return; }
+        if (e.target.closest('[data-evi]')) { const p = m.querySelector('.evw-info'); p.hidden = !p.hidden; return; }
+        if (onClick) onClick(e);
+      };
+    }
+    function openFrenzy() {
+      const g = ui.game; g.evSync();
+      const info = g.evInfo('frenzy'), fl = g.s.ev.frenzy.flames, T3 = G.FRENZY_TIERS, tier = g.frenzyTier(), top = T3[T3.length - 1].flames;
+      const tiers = T3.map((t, i) => '<div class="fz-tier' + (i <= tier ? ' on' : '') + '">' + CLOCHE([210, 45, 300][i], i <= tier) + '<b>x' + t.mult + '</b><small>' + t.flames + '</small></div>').join('');
+      const marks = T3.map((t) => '<i style="left:' + Math.round(t.flames / top * 100) + '%"></i>').join('');
+      const body = '<p class="evw-desc">Earn coins to collect flames to unlock dish boosters! <b>One coin equals one flame!</b></p>' +
+        '<div class="fz-art">' + CLOCHE(300, true) + '<span class="fz-flame">' + FLAME_SVG + '</span></div>' +
+        '<div class="fz-panel"><p>A higher dish booster means better rewards! Served orders pay extra coins.</p><div class="fz-tiers">' + tiers + '</div>' +
+        '<div class="fz-bar"><span class="fz-ico">' + FLAME_SVG + '</span><div class="fz-track"><i style="width:' + Math.min(100, Math.round(fl / top * 100)) + '%"></i>' + marks + '</div><b>' + fl + '</b></div></div>';
+      const foot = info.active ? '<p class="evw-foot">When the timer ends, the boost will disappear! Use it wisely!</p><button class="evw-go" data-evx="1">Cool!</button>'
+        : '<p class="evw-foot">The next Flaming Frenzy starts in ' + fmtLeft(info.left) + '.</p><button class="evw-go" data-evx="1">OK</button>';
+      evWindow('frenzy', 'Flaming Frenzy', info.active ? info.left : null, body, foot, 'Every coin you earn from orders, selling and coin items adds a flame. Reach a flame mark to unlock a better dish booster: served orders then pay more coins until the timer ends. The event comes back every couple of days.');
+    }
+    function openGoals() {
+      const g = ui.game; g.evSync();
+      const info = g.evInfo('goals'), E = g.s.ev.goals, tasks = g.goalTasks(), MS = G.GOAL_MILESTONES, top = MS[MS.length - 1].points;
+      const today = Math.floor((g.clock() - g.s.startedAt) / 86400000) % 7;
+      const days = Array.from({ length: 7 }, (_, d) => '<span class="gd' + (E.days[Math.floor((g.clock() - g.s.startedAt) / 86400000) - today + d] ? ' on' : '') + (d === today ? ' now' : '') + '">Day ' + (d + 1) + '</span>').join('');
+      const ms = MS.map((m, i) => '<button class="gm' + (E.mClaimed[i] ? ' done' : g.goalMilestoneReady(i) ? ' ready' : '') + '" data-gm="' + i + '"' + (g.goalMilestoneReady(i) ? '' : ' disabled') + '><span class="gm-r">' + rewardHTML(m.reward) + '</span><small>' + m.points + '</small></button>').join('');
+      const rows = tasks.map((t) => '<div class="gt' + (t.claimed ? ' claimed' : '') + '"><div class="gt-txt"><b>' + t.title + '</b>' + bar(t.n, t.goal) + '<small>' + t.n + '/' + t.goal + '</small></div>' +
+        '<button class="gt-btn' + (t.done && !t.claimed ? ' ready' : '') + '" data-gt="' + t.id + '"' + (t.done && !t.claimed ? '' : ' disabled') + '>' + (t.claimed ? '&#10003;' : t.done ? 'Claim +' + t.points : '+' + t.points) + '</button></div>').join('');
+      const body = '<div class="gm-strip"><div class="gm-bar"><i style="width:' + Math.min(100, Math.round(E.points / top * 100)) + '%"></i></div><div class="gm-row">' + ms + '</div><p class="gm-pts">' + E.points + ' goal points</p></div>' + rows;
+      evWindow('goals', 'Manor Goals', info.active ? info.left : null, body, '<div class="gd-row">' + days + '</div>',
+        'Finish the weekly goals to earn goal points. Tap a reward bubble when your points reach it. The goals reset every week.',
+        (e) => {
+          const t = e.target.closest('[data-gt]'), m = e.target.closest('[data-gm]');
+          if (t) { ui.act(() => g.claimGoal(t.dataset.gt), 'claim'); openGoals(); }
+          else if (m) { ui.act(() => g.claimGoalMilestone(+m.dataset.gm), 'claim'); openGoals(); }
+        });
+    }
     function openStarter() {
-      const g = ui.game;
-      ui.modal('Starter Bonus', '<p>A welcome gift for the new gardener of Hollow Rose.</p><p style="text-align:center">' + rewardHTML(G.STARTER_REWARD) + '</p>',
-        [{ label: 'Claim', fn: () => { ui.act(() => g.claimStarter(), 'claim'); renderEstate(); ui.render(); } }]);
+      const g = ui.game, n = g.starterNext();
+      if (!n) return;
+      const ready = g.starterReady(), m = $('modal');
+      m.innerHTML = '<div class="card evw starter"><button class="evw-x" data-evx="1" aria-label="Close">&times;</button><div class="st-ribbon"><b>Starter Bonus!</b></div>' +
+        '<div class="st-art">' + CHAINED_GIFT + '</div>' +
+        (ready ? '<p class="st-txt">Your next reward is ready!</p><div class="st-rew">' + rewardHTML(n.reward) + '</div>' : '<p class="st-txt">Upgrade to lv.<b>' + n.lv + '</b> to unlock the next reward!</p><div class="st-rew">' + rewardHTML(n.reward) + '</div>') +
+        '<button class="evw-go" data-stgo="1">' + (ready ? 'Claim' : 'OK') + '</button></div>';
+      m.hidden = false;
+      m.onclick = (e) => {
+        if (e.target.closest('[data-evx]') || e.target === m) { m.onclick = null; ui.closeModal(); return; }
+        if (e.target.closest('[data-stgo]')) { m.onclick = null; ui.closeModal(); if (ready) { ui.act(() => g.claimStarter(), 'claim'); renderEstate(); ui.render(); } }
+      };
     }
 
     // A finished chore has just completed its repair: close the popup, show the repaired piece, then play its story scene.
@@ -282,6 +343,7 @@
       if (!b || b.disabled) return;
       if (b.dataset.chores) { ui.audio('tap'); openChores(); return; }
       if (b.dataset.starter) { ui.audio('tap'); openStarter(); return; }
+      if (b.dataset.ev) { ui.audio('tap'); (b.dataset.ev === 'frenzy' ? openFrenzy : openGoals)(); return; }
       if (b.dataset.chest) {
         if (!g.chestReady()) { ui.toast('The chest fills again in ' + ui.chestLabel(g.chestMsLeft()) + '.'); ui.audio('error'); return; }
         ui.act(() => g.openChest(), 'claim'); renderEstate(); ui.render(); return;
@@ -348,9 +410,16 @@
     function renderEvents() {
       if (wheelBusy) return;
       const g = ui.game, s = g.s, d = s.daily;
-      const tabs = [['pass', 'Garden Pass'], ['festival', 'Festival'], ['wheel', 'Wheel']];
-      let h = '<div class="chips">' + tabs.map((t) => '<button class="chip ' + (eventsTab === t[0] ? 'on' : '') + '" data-evtab="' + t[0] + '">' + t[1] + '</button>').join('') + '</div>';
-      if (eventsTab === 'pass') {
+      const tabs = [['rush', 'Kitchen Rush'], ['pass', 'Garden Pass'], ['festival', 'Festival'], ['wheel', 'Wheel']];
+      let h = '<div class="win-head"><span>Events</span><button class="win-x" data-evclose="1" aria-label="Close">&times;</button></div><div class="chips">' + tabs.map((t) => '<button class="chip ' + (eventsTab === t[0] ? 'on' : '') + '" data-evtab="' + t[0] + '">' + t[1] + '</button>').join('') + '</div>';
+      if (eventsTab === 'rush') {
+        const list = g.rushTasks(), left = g.shopRefreshMs(), hh = Math.floor(left / 3600000), mm = Math.floor((left % 3600000) / 60000);
+        h += '<div class="card rush-head"><h3>Kitchen Rush</h3><p class="muted">Finish the day\'s tasks for rewards. New tasks in <b>' + hh + 'h ' + mm + 'm</b>.</p></div>';
+        h += list.map((t) => '<div class="card row rush-row' + (t.claimed ? ' claimed' : '') + '"><div class="txt"><b>' + t.title + '</b>' + bar(t.n, t.goal) +
+          '<small class="muted">' + t.n + '/' + t.goal + '</small> ' + rewardHTML(t.reward) + '</div>' +
+          '<button class="btn ' + (t.claimed ? 'ghosty' : t.done ? 'alt' : '') + '" data-rush="' + t.i + '"' + (t.done && !t.claimed ? '' : ' disabled') + '>' + (t.claimed ? 'Done' : t.done ? 'Claim' : 'Go') + '</button></div>').join('');
+        h += '<div class="card row rush-bonus"><div class="txt"><b>All tasks bonus</b><br>' + rewardHTML(G.RUSH_BONUS) + '</div><button class="btn ' + (s.rush.bonus ? 'ghosty' : 'alt') + '" data-rushbonus="1"' + (g.rushBonusReady() ? '' : ' disabled') + '>' + (s.rush.bonus ? 'Done' : 'Claim') + '</button></div>';
+      } else if (eventsTab === 'pass') {
         const lv = g.passLevel(), P = S.PASS;
         h += '<div class="card"><h3>Garden Pass <small class="muted">level ' + lv + '/' + P.levels + '</small></h3>' + bar(g.passXpInLevel(), P.xpPer) +
           '<p class="muted">Earn xp by merging, serving orders and restoring the estate.</p>' +
@@ -378,6 +447,9 @@
       if (!b || b.disabled) return;
       const g = ui.game;
       if (b.dataset.evtab) { eventsTab = b.dataset.evtab; renderEvents(); return; }
+      if (b.dataset.evclose) { ui.audio('tap'); const t = ui.lastTab; ui.showTab(t && t !== 'events' ? t : 'garden'); return; }
+      if (b.dataset.rush) { ui.act(() => g.claimRush(+b.dataset.rush), 'claim'); return; }
+      if (b.dataset.rushbonus) { ui.act(() => g.claimRushBonus(), 'claim'); return; }
       if (b.dataset.premium) ui.act(() => g.buyPremium(), 'unlock');
       else if (b.dataset.pass) { const [l, tr] = b.dataset.pass.split(':'); ui.act(() => g.claimPass(+l, tr), 'claim'); }
       else if (b.dataset.evclaim) ui.act(() => g.claimEvent(+b.dataset.evclaim), 'claim');

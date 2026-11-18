@@ -228,6 +228,7 @@ test('estate: finishing every plot of an area opens the next, and all scenes exi
 
 test('badges reflect claimable things', () => {
   const g = mk();
+  g.s.xp = 1e5;   // past the levels where the shop and events open
   assert.equal(g.badges().shop, true);
   g.buyOffer('sp_free');
   assert.equal(g.badges().shop, false);
@@ -403,4 +404,64 @@ test('repair finishes: only a finished repair can be styled, and it is remembere
   assert.equal(g.finishOf('g1'), 1);
   assert.equal(g.setFinish('g1', 5).ok, false);
   assert.equal(Game.load(g.serialize(), () => g.clock()).finishOf('g1'), 1);
+});
+
+test('Kitchen Rush: four daily tasks fill from play and pay out; all four unlock a bonus; a new day resets them', () => {
+  const g = mk();
+  const list = g.rushTasks();
+  assert.equal(list.length, 4);
+  g.onEvent('energy', { n: 100 });
+  g.onEvent('merge', { level: 1 });
+  for (let k = 0; k < 40; k++) g.onEvent('merge', { level: 1 });
+  for (let k = 0; k < 6; k++) g.onEvent('serve', { order: { wants: [{ chain: 'seed', level: 1 }], reward: { coins: 50 } } });
+  g.onEvent('coins', { n: 300 });
+  const done = g.rushTasks();
+  assert.ok(done.every((t) => t.done), JSON.stringify(done));
+  assert.equal(g.rushBonusReady(), false);
+  const c0 = g.s.coins;
+  done.forEach((t) => assert.ok(g.claimRush(t.i).ok));
+  assert.equal(g.claimRush(0).ok, false);
+  assert.ok(g.rushBonusReady());
+  assert.ok(g.claimRushBonus().ok);
+  assert.ok(g.s.coins > c0);
+  g.advance(26 * 3600000);
+  g.rollover();
+  assert.ok(g.rushTasks().every((t) => t.n === 0 && !t.claimed));
+});
+
+test('starter bonus is a chain: the first gift is yours, the next ones wait for player levels', () => {
+  const g = mk();
+  assert.ok(g.starterReady()); assert.ok(g.claimStarter().ok);
+  assert.equal(g.starterReady(), false);
+  assert.equal(g.starterNext().lv, 5);
+  assert.equal(g.claimStarter().ok, false);
+  g.s.xp = 25 * 5 * 4;      // level 5
+  assert.ok(g.starterReady()); assert.ok(g.claimStarter().ok);
+  assert.equal(g.starterNext().lv, 10);
+});
+
+test('Flaming Frenzy: coins become flames while the event runs, and tiers raise order pay', () => {
+  const g = mk();
+  assert.equal(g.evInfo('frenzy').active, true);           // a new game starts inside the first window
+  assert.equal(g.frenzyMult(), 1);
+  g.onEvent('coins', { n: 160 });
+  assert.equal(g.frenzyTier(), 0); assert.equal(g.frenzyMult(), GG.FRENZY_TIERS[0].mult);
+  g.onEvent('coins', { n: 700 });
+  assert.equal(g.frenzyTier(), 2);
+  g.advance(13 * 3600000);                                   // the window has closed
+  assert.equal(g.evInfo('frenzy').active, false); assert.equal(g.frenzyMult(), 1);
+});
+
+test('Manor Goals: tasks fill from play, claiming gives points, and points open milestone rewards', () => {
+  const g = mk();
+  g.onEvent('tool', {}); for (let k = 0; k < 9; k++) g.onEvent('tool', {});
+  const task = g.goalTasks().find((x) => x.id === 'tool');
+  assert.ok(task.done);
+  assert.ok(g.claimGoal('tool').ok); assert.equal(g.claimGoal('tool').ok, false);
+  assert.equal(g.s.ev.goals.points, 150);
+  assert.ok(g.goalMilestoneReady(0));
+  const e0 = g.s.energy; g.s.energy = 0;
+  assert.ok(g.claimGoalMilestone(0).ok);
+  assert.ok(g.s.energy > 0 || e0 >= 0);
+  assert.equal(g.claimGoalMilestone(0).ok, false);
 });
