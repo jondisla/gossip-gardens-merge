@@ -1,0 +1,1 @@
+{ "name": "gossip-gardens-e2e", "private": true, "scripts": { "test": "node tutorial.e2e.js" }, "devDependencies": { "puppeteer-core": "^23.0.0" } }

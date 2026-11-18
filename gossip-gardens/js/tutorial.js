@@ -12,7 +12,9 @@
   G.makeTutorial = function (ui) {
     const q = (sel) => document.querySelector(sel);
     const role = (c) => CHAINS[c.chain].role;
-    let root = null, bubble = null, ring = null, hand = null, blk = null, full = null, rafId = 0, active = null, snap, quietUntil = 0, dragKey = '';
+    let root = null, bubble = null, ring = null, hand = null, blk = null, full = null, rafId = 0, active = null, snap, quietUntil = 0, dragKey = '', shownAt = 0;
+    // Safety net: if a step still is not done after this long, "Got it" appears so nobody is ever stuck behind a tip.
+    const stuckMs = () => (G.tutorialStuckMs != null ? G.tutorialStuckMs : 20000);
 
     const state = () => { const s = ui.game.s; s.tut = s.tut || { seen: {}, off: false }; return s.tut; };
     const seen = (id) => !!state().seen[id];
@@ -155,7 +157,7 @@
         when: (c) => find(c, (it) => role(it) === 'gift' && !it.unlockAt) >= 0 && !c.cells.some((it) => it && role(it) === 'gift' && it.unlockAt),
         text: () => 'A gift box! Tap it to start opening. Tap it again when it is ready. Gems can speed it up.',
         target: (c) => ({ sel: sel(find(c, (it) => role(it) === 'gift' && !it.unlockAt)) }),
-        done: (c) => find(c, (it) => role(it) === 'gift' && !it.unlockAt) < 0 },
+        done: (c) => c.cells.some((it) => it && role(it) === 'gift' && it.unlockAt) || find(c, (it) => role(it) === 'gift') < 0 },   // one gift started is enough, even with a second box waiting
       { id: 'choice', kind: 'action', tab: 'garden',
         when: (c) => find(c, (it) => it.chain === 'choice') >= 0,
         text: () => 'A Machine Choice Box! Tap it and pick one of three new machines for your board.',
@@ -346,7 +348,7 @@
       rafId = requestAnimationFrame(frame);
     }
     function show(t, c) {
-      build(); active = t; G.coachActive = true; dragKey = '';
+      build(); active = t; G.coachActive = true; dragKey = ''; shownAt = Date.now();
       snap = t.snap ? t.snap(c) : undefined;
       if (t.scripted) ui.render();
       root.style.display = '';
@@ -367,9 +369,11 @@
         const t = active;
         const onTab = t.tab === 'any' || t.tab === c.tab;
         if (t.kind === 'action' && t.done(c, snap)) { mark(t.id); hide(); quietUntil = Date.now() + 700; return; }
+        if (t.kind === 'action' && !t.scripted && !t.inModal && onTab && !t.when(c)) { mark(t.id); hide(); quietUntil = Date.now() + 700; return; }   // the step can no longer be done (or already was): move on, never trap the player
         if (t.kind === 'info' && !t.when(c) && onTab) { mark(t.id); hide(); quietUntil = Date.now() + 700; return; }   // the moment passed
         if (!onTab || document.hidden) { hide(); return; }
         if (root) root.style.display = (blocking() && !(t.inModal && modalOpen() && !document.querySelector('.fin-sheet, .fin-block, .sc-ov'))) ? 'none' : '';   // dialogs and sheets come first
+        if (bubble && t.kind === 'action' && Date.now() - shownAt > stuckMs()) bubble.querySelector('.co-ok').style.display = '';
         const p = bubble && bubble.querySelector('p'); if (p) { const txt = t.text(c); if (p.textContent !== txt) p.textContent = txt; }
         return;
       }
@@ -379,6 +383,9 @@
     }
     function reset() { const t = state(); t.seen = {}; t.off = false; ui.save(); hide(); quietUntil = 0; }
     function stop() { state().off = true; ui.save(); hide(); }
-    return { tick, reset, stop, hide };
+    // A dialog opening or closing is checked at once, so a tip never lingers over it until the next half-second tick.
+    const modalEl = document.getElementById('modal');
+    if (modalEl && window.MutationObserver) new MutationObserver(() => { try { tick(); } catch (e) { /* ui not ready */ } }).observe(modalEl, { attributes: true, childList: true });
+    return { tick, reset, stop, hide, current: () => (active ? { id: active.id, kind: active.kind, inModal: !!active.inModal, visible: !!root && root.style.display !== 'none', target: active.target(ctx(), snap) || {}, text: active.text(ctx()) } : null), ids: TIPS.map((x) => x.id) };
   };
 })();

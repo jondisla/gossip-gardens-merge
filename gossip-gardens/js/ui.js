@@ -625,7 +625,7 @@ const tbl = T.spawnTable || {}, top = (L) => Math.max.apply(null, (tbl[Math.min(
   const ui = { get game() { return game; }, toast, modal, closeModal, menu, chestLabel, act, render, save: writeSave, audio: play, showTab, get lastTab() { return lastTab; }, get tab() { return tab; } };
   window.GG.ui = ui;
   screens = G.makeScreens(ui);
-  tutorial = G.makeTutorial(ui);
+  tutorial = G.makeTutorial(ui); G.tutorial = tutorial; G.testGame = () => game;
 
   $('coinIco').innerHTML = icon('coin'); $('gemIco').innerHTML = icon('gem'); $('boltIco').innerHTML = icon('bolt');
   $('cartBtn').innerHTML = G.extraImages.cart ? '<img class="cart-ico" src="' + G.extraImages.cart + '" alt="" draggable="false">' : '<svg viewBox="0 0 48 40" class="cart-ico"><path d="M3 4 H10 L16 27 H37 L42 11 H12" fill="#fff" stroke="#4aa3d6" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round"/><circle cx="19" cy="34" r="3.5" fill="#f2a33a"/><circle cx="34" cy="34" r="3.5" fill="#f2a33a"/><path d="M18 14 V22 M25 14 V22 M32 14 V22" stroke="#e0a94e" stroke-width="2.4" stroke-linecap="round"/></svg>';
