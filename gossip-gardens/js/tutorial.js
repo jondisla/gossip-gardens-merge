@@ -94,6 +94,8 @@
     const toolUses = (c, chain) => c.cells.reduce((n, it) => n + (it && it.chain === chain ? (it.uses || 1) : 0), 0);
     const badges = (c) => c.g.badges();
     const modalOpen = () => !document.getElementById('modal').hidden;
+    // Anything the player has to finish first: a dialog, the colour sheet, a story scene. No tip appears over these.
+    const blocking = () => modalOpen() || !!document.querySelector('.fin-sheet, .fin-block, .sc-ov');
     const rectOf = (selector) => {
       if (!selector) return null;
       const e = q(selector); if (!e) return null;
@@ -255,8 +257,9 @@
     // ---- tip selection ---------------------------------------------------------------
     const introDone = (c) => c.st.merges >= 1 && (seen('orders') || readyOrder(c) || !c.s.orders.some((o) => !o.pending));
     function pick(c) {
-      const inModal = modalOpen();
+      const inModal = modalOpen(), busy = blocking();
       for (const t of TIPS) {
+        if (busy && !(inModal && t.inModal && !document.querySelector('.fin-sheet, .fin-block, .sc-ov'))) continue;   // finish what is on screen first
         if (seen(t.id)) continue;
         if (inModal !== !!t.inModal) continue;               // dialog tips only inside a dialog, all others only outside
         if (t.tab !== 'any' && t.tab !== c.tab) continue;
@@ -366,12 +369,11 @@
         if (t.kind === 'action' && t.done(c, snap)) { mark(t.id); hide(); quietUntil = Date.now() + 700; return; }
         if (t.kind === 'info' && !t.when(c) && onTab) { mark(t.id); hide(); quietUntil = Date.now() + 700; return; }   // the moment passed
         if (!onTab || document.hidden) { hide(); return; }
-        if (root) root.style.display = (modalOpen() && !t.inModal) ? 'none' : '';   // dialogs sit above the dimmed game
+        if (root) root.style.display = (blocking() && !(t.inModal && modalOpen() && !document.querySelector('.fin-sheet, .fin-block, .sc-ov'))) ? 'none' : '';   // dialogs and sheets come first
         const p = bubble && bubble.querySelector('p'); if (p) { const txt = t.text(c); if (p.textContent !== txt) p.textContent = txt; }
         return;
       }
       if (Date.now() < quietUntil || document.hidden) return;
-      if (document.querySelector('.sc-ov')) return;          // never over a story scene
       const t = pick(c);
       if (t) show(t, c);
     }
