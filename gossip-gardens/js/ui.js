@@ -590,5 +590,30 @@
     navigator.serviceWorker.register('sw.js').catch(() => { /* offline cache is optional */ });
   }
 
+  // Playing from the web address? Offer to install the game like an app (full screen, works offline).
+  (function installHint() {
+    const KEY = 'gossip-gardens-install-dismissed';
+    const standalone = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+    if (standalone || /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname)) return;
+    try { const t = +localStorage.getItem(KEY); if (t && Date.now() - t < 3 * 86400000) return; } catch (e) { /* storage blocked */ }
+    let deferred = null;
+    window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferred = e; });
+    const ios = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    setTimeout(() => {
+      if (document.getElementById('installBar')) return;
+      const how = deferred ? '' : ios ? 'Tap the Share button, then “Add to Home Screen”.' : 'Open your browser menu and choose “Install app” or “Add to Home screen”.';
+      const bar = document.createElement('div');
+      bar.id = 'installBar'; bar.setAttribute('role', 'dialog');
+      bar.innerHTML = '<img src="icon-192.png" alt="" width="40" height="40"><div class="ib-txt"><b>Get the app</b><span>Play Gossip Gardens full screen, even offline. ' + how + '</span></div>' +
+        (deferred ? '<button class="ib-go">Install</button>' : '') + '<button class="ib-x" aria-label="Not now">✕</button>';
+      document.body.appendChild(bar);
+      const close = () => { try { localStorage.setItem(KEY, String(Date.now())); } catch (e) { /* storage blocked */ } bar.remove(); };
+      bar.querySelector('.ib-x').onclick = close;
+      const go = bar.querySelector('.ib-go');
+      if (go) go.onclick = () => { deferred.prompt(); deferred.userChoice.finally(() => { deferred = null; close(); }); };
+    }, 6000);
+    window.addEventListener('appinstalled', () => { const b = document.getElementById('installBar'); if (b) b.remove(); });
+  })();
+
   Object.defineProperty(window, '__game', { get: () => game }); // handy for debugging in the console
 })();
