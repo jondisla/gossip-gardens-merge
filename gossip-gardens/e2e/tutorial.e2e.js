@@ -113,6 +113,24 @@ async function doTip(page, look, label) {
   return false;
 }
 
+// ---- drag tips must be strict: only the highlighted item can be grabbed, only the highlighted spot accepts it, and only in that direction ----
+async function wrongMoves(page, label, c) {
+  const idx = (q) => { const m = /data-i="(\d+)"/.exec(q || ''); return m ? +m[1] : null; };
+  const from = idx(c.target.sel), to = idx(c.target.to); if (from == null || to == null) return;
+  const cellSel = (i) => '#board .cell[data-i="' + i + '"]';
+  const info = await page.evaluate((f, t2) => { const s = GG.testGame().s; const other = s.cells.findIndex((it, i) => it && i !== f && i !== t2 && !(s.locks && s.locks[i]) && !it.web); const empty = s.cells.findIndex((it, i) => !it && i !== f && i !== t2 && !(s.locks && s.locks[i])); return { other, empty }; }, from, to);
+  const tries = [['reversed (grabbing the target instead of the highlighted item)', to, from]];
+  if (info.other >= 0) tries.push(['some other item dropped on the target', info.other, to], ['the highlighted item dropped on some other item', from, info.other]);
+  if (info.empty >= 0) tries.push(['the highlighted item dropped on an empty cell', from, info.empty]);
+  for (const [what, a, b] of tries) {
+    const before = await page.evaluate(() => JSON.stringify(GG.testGame().s.cells));
+    await drag(page, cellSel(a), cellSel(b)); await sleep(500);
+    const after = await page.evaluate(() => JSON.stringify(GG.testGame().s.cells)), sn = await snapshot(page);
+    if (before !== after) fail(label, 'the board allowed a move the tip did not ask for: ' + what);
+    else if (!sn.cur || sn.cur.id !== c.id) fail(label, 'the tip went away after a wrong move: ' + what);
+  }
+}
+
 // ---- state setups, one per tip ------------------------------------------------------------
 const PRE = `
   const g = GG.testGame(), s = g.s; s.tut = s.tut || { seen: {}, off: false };
@@ -173,6 +191,8 @@ async function scenarioIn(browser, base, id, setup, estate, key) {
     let got = false;
     for (let i = 0; i < 40 && !got; i++) { await sleep(250); const sn = await look(page); if (process.env.DEBUG && i % 8 === 0) console.log(JSON.stringify({ i, cur: sn.cur && sn.cur.id, modal: sn.modal, sheet: sn.sheet, tab: sn.tab, energy: sn.energy })); if (sn.modal && !sn.cur) { await page.mouse.click(5, 5); continue; } got = !!(sn.cur && sn.cur.id === id); if (sn.cur && sn.cur.id !== id) { fail(label, 'a different tip came first: "' + sn.cur.id + '"'); break; } }
     if (!got) { if (!failures.some((f) => f.startsWith(label))) fail(label, 'the tip never appeared when its situation was set up'); return; }
+    if (process.env.SHOT) await page.screenshot({ path: process.env.SHOT + '-' + key + '.png' });
+    const cur0 = (await snapshot(page)).cur; if (cur0 && cur0.kind === 'action' && cur0.target.to) await wrongMoves(page, label, cur0);
     const done = await doTip(page, look, label);
     if (done) {
       await sleep(3500);                           // it must not come back

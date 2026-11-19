@@ -524,6 +524,8 @@ const tbl = T.spawnTable || {}, top = (L) => Math.max.apply(null, (tbl[Math.min(
     const node = e.target.closest('.cell');
     if (!node) return;
     const i = +node.dataset.i, c = game.s.cells[i];
+    const gate = G.coachGate;
+    if (gate && i !== gate.from) { e.preventDefault(); if (G.coachNudge) G.coachNudge(); return; }   // the tutorial only lets you pick up the highlighted item
     selected = i;
     if (game.s.locks && game.s.locks[i]) { act(() => game.unlock(i)); e.preventDefault(); return; }
     if (c && c.web) { act(() => game.tap(i)); e.preventDefault(); return; }
@@ -557,8 +559,10 @@ const tbl = T.spawnTable || {}, top = (L) => Math.max.apply(null, (tbl[Math.min(
     if (d.over) d.over.classList.remove('target');
     lastBoardHTML = '';
     if (cancel) { render(); return; }
-    if (!d.moved) { act(() => game.tap(d.i)); return; }
+    const gate = G.coachGate;
+    if (!d.moved) { if (gate && gate.to != null) { render(); return; } act(() => game.tap(d.i)); return; }   // a drag tip is finished by dragging, not tapping
     const target = hitAt(e.clientX, e.clientY);
+    if (gate && gate.to != null && !(target && target.dataset.i === String(gate.to))) { if (G.coachNudge) G.coachNudge(); render(); return; }   // and only onto the highlighted spot
     if (target && target.id === 'storeBtn') { act(() => game.store(d.i)); return; }
     if (target && target.dataset.i != null) {
       const to = +target.dataset.i;

@@ -12,7 +12,7 @@
   G.makeTutorial = function (ui) {
     const q = (sel) => document.querySelector(sel);
     const role = (c) => CHAINS[c.chain].role;
-    let root = null, bubble = null, ring = null, hand = null, blk = null, full = null, rafId = 0, active = null, snap, quietUntil = 0, dragKey = '', shownAt = 0;
+    let root = null, bubble = null, ring = null, ring2 = null, hand = null, blk = null, full = null, rafId = 0, active = null, snap, quietUntil = 0, dragKey = '', shownAt = 0;
     // Safety net: if a step still is not done after this long, "Got it" appears so nobody is ever stuck behind a tip.
     const stuckMs = () => (G.tutorialStuckMs != null ? G.tutorialStuckMs : 20000);
 
@@ -278,23 +278,23 @@
       if (root) return;
       root = document.createElement('div'); root.id = 'coach';
       root.innerHTML = '<div class="co-full"></div><div class="co-blk"></div><div class="co-blk"></div><div class="co-blk"></div><div class="co-blk"></div>' +
-        '<div class="co-ring"></div><div class="co-hand"></div>' +
+        '<div class="co-ring"></div><div class="co-ring co-ring2"></div><div class="co-hand"></div>' +
         '<div class="co-bubble"><i class="co-tail"></i><div class="co-face"></div><div class="co-body"><p></p><div class="co-row"><button class="co-ok">Got it</button><button class="co-skip">Skip tutorial</button></div></div></div>';
       document.body.appendChild(root);
       full = root.querySelector('.co-full'); blk = Array.from(root.querySelectorAll('.co-blk'));
-      ring = root.querySelector('.co-ring'); hand = root.querySelector('.co-hand'); bubble = root.querySelector('.co-bubble');
+      ring = root.querySelector('.co-ring'); ring2 = root.querySelector('.co-ring2'); hand = root.querySelector('.co-hand'); bubble = root.querySelector('.co-bubble');
       // tapping the dimmed game just nudges the bubble, so players see what they are supposed to do
-      [full].concat(blk).forEach((b) => b.addEventListener('pointerdown', (e) => {
-        e.preventDefault(); e.stopPropagation();
-        bubble.classList.remove('nudge'); void bubble.offsetWidth; bubble.classList.add('nudge');
-      }));
+      const nudge = () => { if (!bubble) return; bubble.classList.remove('nudge'); void bubble.offsetWidth; bubble.classList.add('nudge'); };
+      [full].concat(blk).forEach((b) => b.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); nudge(); }));
+      G.coachNudge = nudge;
       root.querySelector('.co-ok').onclick = () => { if (active) { mark(active.id); ui.audio('tap'); hide(); quietUntil = Date.now() + 1200; } };
       root.querySelector('.co-skip').onclick = () => { state().off = true; ui.save(); hide(); };
     }
     function hide() {
       active = null; snap = undefined; G.coachActive = false; dragKey = '';
       if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
-      if (root) { root.remove(); root = bubble = ring = hand = blk = full = null; }
+      G.coachGate = null; G.coachNudge = null;
+      if (root) { root.remove(); root = bubble = ring = ring2 = hand = blk = full = null; }
     }
     // The bubble sits right beside the thing it talks about, with a little tail pointing at it.
     function placeBubble(r) {
@@ -324,6 +324,15 @@
       const boxes = [[0, 0, vw, t], [0, t + h, vw, vh - t - h], [0, t, l, h], [l + w, t, vw - l - w, h]];
       blk.forEach((b, i) => { const x = boxes[i]; b.style.cssText = 'display:block;left:' + x[0] + 'px;top:' + x[1] + 'px;width:' + Math.max(0, x[2]) + 'px;height:' + Math.max(0, x[3]) + 'px'; });
     }
+    // Two separate holes (the item to grab and the place to drop it), everything else dimmed and untouchable.
+    function setHoles(rs) {
+      const vw = window.innerWidth, vh = window.innerHeight, pad = 5;
+      blk.forEach((b) => { b.style.display = 'none'; });
+      full.style.display = 'block'; full.classList.add('dim');
+      full.style.clipPath = 'path(evenodd, "M0 0H' + vw + 'V' + vh + 'H0Z' + rs.map((r) => 'M' + (r.left - pad) + ' ' + (r.top - pad) + 'h' + (r.width + pad * 2) + 'v' + (r.height + pad * 2) + 'h' + -(r.width + pad * 2) + 'z').join('') + '")';
+      [ring, ring2].forEach((g, i) => { const r = rs[i]; g.classList.add('multi'); g.style.cssText = r ? 'display:block;left:' + (r.left - pad) + 'px;top:' + (r.top - pad) + 'px;width:' + (r.width + pad * 2) + 'px;height:' + (r.height + pad * 2) + 'px' : 'display:none'; });
+    }
+    const cellOf = (selector) => { const m = /data-i="(\d+)"/.exec(selector || ''); return m ? +m[1] : null; };
     function frame() {
       rafId = 0;
       if (!active || !root) return;
@@ -333,7 +342,10 @@
         const u = r2 ? { left: Math.min(r1.left, r2.left), top: Math.min(r1.top, r2.top), right: Math.max(r1.right, r2.right), bottom: Math.max(r1.bottom, r2.bottom) } : r1;
         const hole = { left: u.left, top: u.top, width: (u.right !== undefined ? u.right : r1.right) - u.left, height: (u.bottom !== undefined ? u.bottom : r1.bottom) - u.top };
         hole.right = hole.left + hole.width; hole.bottom = hole.top + hole.height;
-        setHole(hole, active.kind === 'action');
+        full.style.clipPath = ''; if (ring2) ring2.style.display = 'none'; ring.classList.remove('multi');
+        if (r2 && active.kind === 'action') setHoles([r1, r2]); else setHole(hole, active.kind === 'action');
+        // the board only accepts exactly what the tip asks: grab THIS item, drop it on THAT one
+        G.coachGate = active.kind === 'action' && cellOf(tg.sel) != null ? { from: cellOf(tg.sel), to: cellOf(tg.to) } : null;
         hand.style.cssText = (active.kind === 'action' ? 'display:block;' : 'display:none;') + 'left:' + (r1.left + r1.width * 0.55) + 'px;top:' + (r1.top + r1.height * 0.5) + 'px';
         const key = tg.sel + '>' + (tg.to || '');
         if (r2 && key !== dragKey) {
@@ -344,7 +356,7 @@
           hand.animate([{ transform: 'translate(0,0)' }, { transform: 'translate(0,0)', offset: .15 }, { transform: 'translate(' + dx + 'px,' + dy + 'px)', offset: .75 }, { transform: 'translate(' + dx + 'px,' + dy + 'px)' }], { duration: 1800, iterations: Infinity, easing: 'ease-in-out' });
         } else if (!r2 && dragKey) { dragKey = ''; hand.classList.remove('drag'); hand.getAnimations().forEach((a) => a.cancel()); }
         placeBubble(hole.height > window.innerHeight * 0.4 ? null : hole);
-      } else { setHole(null, false); hand.style.display = 'none'; placeBubble(null); }
+      } else { full.style.clipPath = ''; if (ring2) ring2.style.display = 'none'; G.coachGate = null; setHole(null, false); hand.style.display = 'none'; placeBubble(null); }
       rafId = requestAnimationFrame(frame);
     }
     function show(t, c) {
