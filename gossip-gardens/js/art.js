@@ -74,7 +74,7 @@
   // Edit these numbers to move a piece.
   G.repairLayout = [
     [[55, 89, 36], [48, 66, 36], [55, 43, 36], [64, 27, 34], [28, 27, 34], [50, 12, 34]],   // area 1, spot 1: gate, path, beds, lantern, hedges, porch steps
-    [[50, 47, 36], [50, 25, 34], [20, 44, 34], [66, 34, 34], [34, 34, 34], [70, 69, 34]],   // area 1, spot 2: fountain, roses, wall, lamp, rose path, sign
+    [[50, 48, 36], [52, 23, 30], [18, 54, 30], [72, 36, 26], [27, 32, 28], [70, 71, 30]],   // area 1, spot 2: fountain, roses, wall, lamp, rose path, sign
     [[45, 25, 36], [46, 45, 40], [76, 64, 34], [14, 43, 34], [20, 66, 34], [44, 82, 34]],   // area 2, spot 1: roof, floor, tables, tea set, lilies, path
     [[45, 83, 36], [50, 55, 34], [27, 35, 36], [62, 21, 34], [25, 63, 34], [68, 70, 34]],   // area 2, spot 2: arch gate, gravel, benches, lanterns, hydrangeas, sign
     [[50, 40, 36], [30, 33, 34], [20, 58, 34], [72, 60, 34], [45, 82, 36], [52, 63, 34]],   // area 3, spot 1: press, paper, sign, news, gate, cobbles

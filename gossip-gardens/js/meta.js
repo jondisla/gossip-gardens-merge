@@ -91,10 +91,10 @@
     this.s.starterStage += 1; this.s.starter = true;
     return { ok: true, reward: n.reward, msg: 'Starter bonus: ' + this.grant(n.reward) };
   };
-  /** A repair's finish is a colour shift in degrees (0 = classic colours). Purely a look. */
-  P.finishOf = function (id) { return (this.s.estate.finish && this.s.estate.finish[id]) || 0; };
+  /** A repair's finish is a colour option number (0 = classic colours). Purely a look. Old saves stored degrees: those become classic. */
+  P.finishOf = function (id) { const n = this.s.estate.finish && this.s.estate.finish[id]; return Number.isInteger(n) && n >= 0 && n <= 9 ? n : 0; };
   P.setFinish = function (id, n) {
-    if (!this.s.estate.done[id] || !Number.isInteger(n) || Math.abs(n) > 360) return { ok: false };
+    if (!this.s.estate.done[id] || !Number.isInteger(n) || n < 0 || n > 9) return { ok: false };
     this.s.estate.finish[id] = n;
     return { ok: true };
   };

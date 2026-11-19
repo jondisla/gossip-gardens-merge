@@ -44,15 +44,19 @@
   }
 
   // ---- estate plots (a broken version and a restored version, two decor styles) -------
-  // A finish is a colour shift in degrees (0 = the original colours). Older saves used 1 for "twilight".
-  const finishFilter = (f) => { const deg = f === 1 ? 38 : f; return deg ? 'hue-rotate(' + deg + 'deg) saturate(1.1) brightness(.97) ' : ''; };
+  // A finish is a colour option number for that piece (0 = the classic colours); see paint.js.
   function plotArt(kind, done, style, finish) {
     const pi = G.plotImages && G.plotImages[kind];
     if (pi && pi[done ? 1 : 0]) {
       const al = G.plotAlias && G.plotAlias[kind], ap = al && G.plotImages[al];
       const fb = ap ? ' onerror="this.onerror=null;this.src=\'' + ap[done ? 1 : 0] + '\'"' : '';
-      const fin = done && finish && finishFilter(finish) ? ' style="filter:' + finishFilter(finish) + 'drop-shadow(0 5px 4px rgba(30,50,20,.35))"' : '';
-      return '<img class="spr plotimg" src="' + pi[done ? 1 : 0] + '" alt="" draggable="false"' + fb + fin + '>';
+      let src = pi[done ? 1 : 0];
+      if (done && finish && G.paint && G.paint.has(kind)) {
+        const u = G.paint.url(kind, finish);
+        if (u) src = u; else G.paint.ensure(kind, finish, () => { if (G.onPaintReady) G.onPaintReady(); });
+      }
+      const fin = '';
+      return '<img class="spr plotimg" src="' + src + '" alt="" draggable="false"' + fb + fin + '>';
     }
     const h0 = { gate: 30, path: 35, bed: 335, lantern: 46, roof: 12, floor: 200, tables: 335, teaset: 150, press: 215, paper: 48, sign: 20, news: 215 }[kind];
     const h = (h0 + (style ? 40 : 0)) % 360;

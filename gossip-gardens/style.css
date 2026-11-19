@@ -1515,3 +1515,53 @@ body[data-tab="shop"] #screen-shop {
 /* two-hole mode (drag tips): the full-screen layer does the dimming, so the rings must not add their own shadow */
 #coach .co-ring.multi { box-shadow: none; }
 #coach .co-ring.multi::after { box-shadow: 0 0 12px 3px rgba(255, 233, 74, .85); }
+
+/* ---------- Rave Reviews popup, restyled after the original's "Review Targets" window ---------- */
+#modal .card.reviews { width: min(92vw, 360px); border: 4px solid #fff; border-radius: 24px; background: linear-gradient(#6a3bb4, #4d2590); box-shadow: 0 0 0 3px #8a52d0, 0 10px 30px rgba(0, 0, 0, .55); overflow: visible; margin-top: 18px; }
+.rv-head { position: relative; margin: -22px -10px 0; display: flex; align-items: center; justify-content: center; }
+.rv-head .rv-star { position: absolute; left: 6px; top: -8px; width: 34px; height: 34px; transform: rotate(-14deg); filter: drop-shadow(0 2px 2px rgba(60, 20, 90, .6)); z-index: 2; }
+.rv-head .rv-star.r { left: auto; right: 6px; transform: rotate(14deg); }
+#modal .card.reviews .rv-title { margin: 0; padding: 8px 34px 10px; border: 3px solid #fff; border-radius: 16px 16px 26px 26px; background: linear-gradient(#ffe27a, #f4a92b 70%, #e68a14); box-shadow: 0 4px 0 #a85d0f, 0 6px 10px rgba(0, 0, 0, .35); color: #fff; font-size: 26px; text-shadow: 0 2px 0 #b3661a, 0 0 6px rgba(120, 60, 0, .6); }
+#modal .card.reviews .rv-x { right: -12px; top: -16px; width: 32px; height: 32px; background: #8a52d0; z-index: 3; }
+.rv-bar { margin: 16px 58px 6px 44px; height: 26px; background: #321566; border: 2px solid #8a52d0; box-shadow: inset 0 2px 4px rgba(0, 0, 0, .4); }
+.rv-pic { height: 200px; margin: 8px 12px 0; border: 3px solid #8a52d0; border-radius: 16px; background: radial-gradient(circle at 70% 30%, #fff1b8, #f6b560 70%); box-shadow: inset 0 0 18px rgba(150, 70, 0, .35); position: relative; }
+.rv-pic::before, .rv-pic::after { content: "★"; font-family: system-ui, sans-serif; position: absolute; color: #fff; text-shadow: 0 0 6px #f4a92b; font-size: 18px; opacity: .85; }
+.rv-pic::before { right: 22px; top: 18px; } .rv-pic::after { right: 56px; top: 62px; font-size: 12px; }
+.rv-pic .spr { height: 108%; margin-left: -20%; }
+#modal .card.reviews .rv-text { margin: 10px 20px 4px; color: #fff; font-size: 15px; font-weight: 800; line-height: 1.3; text-shadow: 0 1px 2px #2a0f55; }
+/* the reward amounts sit on light pills so they can be read on purple */
+.rv-rew { margin: 6px 14px 8px; }
+.rv-rew .reward-row { display: inline-flex; gap: 12px; padding: 5px 16px; border-radius: 999px; background: rgba(255, 255, 255, .95); box-shadow: 0 2px 4px rgba(0, 0, 0, .3); color: #3b2a66; font-weight: 900; font-size: 16px; }
+.rv-rew .reward-row * { color: #3b2a66; }
+#modal .card.reviews .rv-ok { width: 66%; margin: 4px 0 18px; border: 3px solid #fff; border-radius: 16px; background: linear-gradient(#7be56d, #2fae3e); box-shadow: 0 4px 0 #1b7a2a, 0 6px 8px rgba(0, 0, 0, .3); color: #fff; font-size: 22px; text-shadow: 0 2px 0 #1b7a2a; }
+
+/* ---------- Starter Bonus window, closer to the original: banner, glowing panel, chained gifts on a star podium ---------- */
+#modal .card.evw.starter { margin-top: 26px; padding: 46px 12px 14px; border: 4px solid #ffd5e4; border-radius: 22px; background: linear-gradient(#f4678f, #d63a73); box-shadow: 0 0 0 3px #f58db0, 0 10px 28px rgba(0, 0, 0, .5); overflow: visible; }
+.st-ribbon { left: -18px; right: -18px; top: -20px; padding: 7px 24px 11px; border: 3px solid #ffd45a; border-radius: 12px; background: linear-gradient(#ff6a86, #d82a58); box-shadow: 0 4px 8px rgba(0, 0, 0, .4); }
+.st-ribbon .tl, .st-ribbon .tr { position: absolute; top: 12px; width: 26px; height: 100%; z-index: -1; background: #a81c45; border: 3px solid #ffd45a; }
+.st-ribbon .tl { left: -16px; clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 36% 50%); }
+.st-ribbon .tr { right: -16px; clip-path: polygon(0 0, 100% 0, 64% 50%, 100% 100%, 0 100%); }
+.st-ribbon b { font-size: 25px; color: #ffe94a; text-shadow: 0 2px 0 #8a1535, 0 0 8px rgba(120, 10, 40, .6); }
+#modal .card.evw.starter .evw-x { right: -12px; top: -16px; z-index: 4; width: 34px; height: 34px; background: #e8486a; border-color: #ffd45a; }
+.st-art { position: relative; height: 200px; margin: 6px 0 4px; overflow: hidden; border: 3px solid #f58db0; border-radius: 16px; background: linear-gradient(#7d86ec, #4b46b0); }
+.st-glow { position: absolute; inset: 0; background: radial-gradient(circle at 50% 46%, rgba(255, 244, 190, .75), rgba(255, 244, 190, 0) 62%); }
+.st-art svg { width: auto; margin: 0; }
+.st-pod { position: absolute; left: 4%; bottom: 2px; width: 92% !important; height: auto; }
+.st-i { position: absolute; height: auto; filter: drop-shadow(0 3px 3px rgba(40, 10, 70, .45)); pointer-events: none; }
+.st-i.g-c { width: 46%; left: 27%; bottom: 46px; z-index: 2; }
+.st-i.g-l { width: 31%; left: 7%; bottom: 52px; transform: rotate(-9deg); z-index: 1; }
+.st-i.g-r { width: 31%; right: 7%; bottom: 52px; transform: rotate(9deg); z-index: 1; }
+.st-i.c-l { width: 22%; left: 6%; bottom: 36px; z-index: 3; } .st-i.c-r { width: 17%; right: 20%; bottom: 34px; z-index: 3; }
+.st-i.m-r { width: 15%; right: 5%; bottom: 40px; z-index: 3; } .st-i.m-l { width: 12%; left: 26%; bottom: 34px; z-index: 3; }
+.st-chain { position: absolute; inset: 0; width: 100% !important; height: 100% !important; z-index: 4; filter: drop-shadow(0 2px 2px rgba(30, 10, 60, .5)); }
+.st-art.open .st-chain { display: none; }
+#modal .card.evw.starter .st-txt { margin: 8px 8px 6px; font-size: 17px; }
+#modal .card.evw.starter .evw-go { width: 64%; margin-top: 8px; }
+
+/* colour sheet: each choice is the actual piece in that colour */
+.fin-sheet .fs-opt { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 6px 4px 4px; }
+.fin-sheet .fs-pic { width: 100%; height: 64px; object-fit: contain; display: block; }
+.fin-sheet .fs-opt small { font-size: 11px; font-weight: 800; color: #4a3a6a; }
+
+.fin-sheet .fs-row { margin-bottom: 30px; }
+.fin-sheet .fs-opt small { line-height: 1.1; padding-bottom: 2px; }

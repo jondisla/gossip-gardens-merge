@@ -124,6 +124,7 @@
 
     const paintedIcon = (key, fallback) => (G.extraImages && G.extraImages[key]) ? '<img src="' + G.extraImages[key] + '" alt="" draggable="false">' : fallback;
 
+    G.onPaintReady = () => { try { if (document.body.dataset.tab === 'estate') renderEstate(); } catch (e) { /* not ready */ } };
     function renderEstate() {
       const g = ui.game, s = g.s;
       document.body.dataset.etab = estateTab;
@@ -210,29 +211,27 @@
     // Choose how a repair looks. The dialog cannot be dismissed by tapping outside, so the story always continues.
     // Three colour choices per repair, like the original's bottom sheet: pick a striped swatch and the piece changes
     // in the scene right away; the green tick keeps it. The choices are the classic colours plus two random shifts.
-    const HUES = [-150, -110, -70, -35, 35, 70, 110, 150];
-    const swatch = (deg) => '<span class="fs-sw">' + [20, 48, 140, 210].map((h) => '<i style="background:hsl(' + (h + deg + 360) % 360 + ',72%,' + (h === 210 ? 58 : 62) + '%)"></i>').join('') + '</span>';
+    const thumb = (kind, i) => '<img class="fs-pic" src="' + (G.paint.url(kind, i) || G.paint.url(kind, 0)) + '" alt="" draggable="false">';
     function chooseFinish(id, next) {
       const g = ui.game, t = S.TASKS.find((x) => x.id === id);
+      if (!G.paint || !G.paint.has(t.kind)) { if (next) next(); return; }          // nothing on this piece can sensibly be repainted
       let cur = g.finishOf(id);
-      if (cur === 1) cur = 38;
-      const opts = [0];
+      const n = G.paint.count(t.kind), opts = [0];
       if (cur) opts.push(cur);
-      const pool = HUES.filter((d) => !opts.includes(d));
-      while (opts.length < 3 && pool.length) {
-        const d = pool.splice(Math.floor(Math.random() * pool.length), 1)[0];
-        if (opts.every((o) => Math.abs(o - d) >= 55)) opts.push(d);
-      }
+      const pool = []; for (let i = 1; i < n; i++) if (!opts.includes(i)) pool.push(i);
+      while (opts.length < 3 && pool.length) opts.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
+      opts.sort((x, y) => x - y);
       document.querySelectorAll('.fin-sheet, .fin-block').forEach((e) => e.remove());
       const block = document.createElement('div'); block.className = 'fin-block';
       const sheet = document.createElement('div'); sheet.className = 'fin-sheet'; sheet.setAttribute('role', 'dialog');
       const draw = () => {
         sheet.innerHTML = '<h3>Choose Renovation Colours</h3><p>' + t.name + '</p><div class="fs-row">' +
-          opts.map((d) => '<button class="fs-opt' + (cur === d ? ' on' : '') + '" data-fin="' + d + '" aria-label="Colour set">' + swatch(d) + '</button>').join('') +
+          opts.map((d) => '<button class="fs-opt' + (cur === d ? ' on' : '') + '" data-fin="' + d + '" aria-label="' + G.paint.name(t.kind, d) + '">' + thumb(t.kind, d) + '<small>' + G.paint.name(t.kind, d) + '</small></button>').join('') +
           '</div><button class="fs-ok" data-fin-ok="1" aria-label="Keep these colours">&#10003;</button>';
       };
       draw();
       document.body.appendChild(block); document.body.appendChild(sheet);
+      opts.forEach((i) => G.paint.ensure(t.kind, i, () => { if (sheet.isConnected) { draw(); renderEstate(); } }));
       sheet.onclick = (e) => {
         const o = e.target.closest('[data-fin]');
         if (o) { ui.audio('tap'); cur = +o.dataset.fin; g.setFinish(id, cur); ui.save(); draw(); renderEstate(); return; }
@@ -244,7 +243,7 @@
       const g = ui.game, hp = g.happyProgress(), m = $('modal');
       const face = '<svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="17" fill="#ffd45a" stroke="#fff" stroke-width="3"/><circle cx="14.5" cy="17" r="2" fill="#5a3b12"/><circle cx="25.5" cy="17" r="2" fill="#5a3b12"/><path d="M12.5 23.5 Q20 31.5 27.5 23.5" fill="none" stroke="#5a3b12" stroke-width="2.4" stroke-linecap="round"/></svg>';
       const gift = '<button class="rv-gift" aria-label="What is the reward?"><svg viewBox="0 0 48 48" aria-hidden="true"><rect x="7" y="20" width="34" height="23" rx="3" fill="#43c7a0" stroke="#1f8a6c" stroke-width="2"/><rect x="5" y="15" width="38" height="9" rx="2" fill="#5fe0b8" stroke="#1f8a6c" stroke-width="2"/><path d="M24 15 C14 3 6 10 14 15 Z M24 15 C34 3 42 10 34 15 Z" fill="#ffc83a" stroke="#c98a10" stroke-width="2"/><circle cx="24" cy="31" r="9" fill="#ffd45a" stroke="#fff" stroke-width="1.5"/><circle cx="21" cy="29" r="1.4" fill="#5a3b12"/><circle cx="27" cy="29" r="1.4" fill="#5a3b12"/><path d="M20 33 Q24 37 28 33" fill="none" stroke="#5a3b12" stroke-width="1.6" stroke-linecap="round"/></svg><i class="rv-bang">!</i></button>';
-      m.innerHTML = '<div class="card reviews"><button class="rv-x" aria-label="Close">&#10005;</button><h2 class="rv-title">Rave Reviews</h2>' +
+      m.innerHTML = '<div class="card reviews"><button class="rv-x" aria-label="Close">&#10005;</button><div class="rv-head"><svg class="rv-star" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l3 6.5 7 .8-5.2 4.8 1.5 7L12 17.6 5.7 21l1.5-7L2 9.3l7-.8z" fill="#ffd45a" stroke="#c98a10" stroke-width="1.6" stroke-linejoin="round"/></svg><h2 class="rv-title"><span>Rave Reviews</span></h2><svg class="rv-star r" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l3 6.5 7 .8-5.2 4.8 1.5 7L12 17.6 5.7 21l1.5-7L2 9.3l7-.8z" fill="#ffd45a" stroke="#c98a10" stroke-width="1.6" stroke-linejoin="round"/></svg></div>' +
         '<div class="rv-bar">' + face + '<i style="width:' + Math.round(hp.n / hp.goal * 100) + '%"></i><b>' + hp.n + '/' + hp.goal + '</b>' + gift + '</div>' +
         '<div class="rv-pic">' + (G.portraitImages && G.portraitImages.you ? '<img class="spr" src="' + G.portraitImages.you + '" alt="" draggable="false">' : '') + '</div>' +
         '<p class="rv-text">Earn good reviews by serving customers, and win a big reward!</p>' +
@@ -307,12 +306,21 @@
           else if (m) { ui.act(() => g.claimGoalMilestone(+m.dataset.gm), 'claim'); openGoals(); }
         });
     }
+    // The starter bonus picture: gifts, coins and gems on a star podium, wrapped in chains until the next reward unlocks.
+    const STARTER_SCENE =
+      '<svg class="st-pod" viewBox="0 0 300 70" aria-hidden="true"><ellipse cx="150" cy="44" rx="140" ry="24" fill="#c42a6c"/><ellipse cx="150" cy="36" rx="140" ry="24" fill="#ff5fa0"/><ellipse cx="150" cy="32" rx="124" ry="18" fill="#ff86b8"/>' +
+      [30, 80, 130, 170, 220, 270].map((x, i) => '<path transform="translate(' + x + ' ' + (i % 2 ? 56 : 54) + ')" d="M0-7l2.2 4.6 5 .7-3.7 3.5.9 5L0 4.4-4.4 6.8l.9-5-3.7-3.5 5-.7z" fill="#ffd45a"/>').join('') + '</svg>' +
+      '<img class="st-i g-l" src="art/items/gift_box.webp" alt="" draggable="false"><img class="st-i g-r" src="art/items/gift_box.webp" alt="" draggable="false"><img class="st-i g-c" src="art/items/gift_box.webp" alt="" draggable="false">' +
+      '<img class="st-i c-l" src="art/items/coin_pile.webp" alt="" draggable="false"><img class="st-i c-r" src="art/items/coin_pair.webp" alt="" draggable="false"><img class="st-i m-r" src="art/items/gem_cluster.webp" alt="" draggable="false"><img class="st-i m-l" src="art/items/gem_ruby.webp" alt="" draggable="false">' +
+      '<svg class="st-chain" viewBox="0 0 300 200" aria-hidden="true"><g fill="none" stroke-linecap="round"><path d="M40 60 C100 130 200 130 262 70" stroke="#6d7684" stroke-width="11"/><path d="M40 60 C100 130 200 130 262 70" stroke="#d9dfe8" stroke-width="6"/><path d="M40 60 C100 130 200 130 262 70" stroke="#6d7684" stroke-width="6" stroke-dasharray="3 12"/>' +
+      '<path d="M44 118 C110 70 190 70 258 120" stroke="#6d7684" stroke-width="11"/><path d="M44 118 C110 70 190 70 258 120" stroke="#d9dfe8" stroke-width="6"/><path d="M44 118 C110 70 190 70 258 120" stroke="#6d7684" stroke-width="6" stroke-dasharray="3 12"/></g>' +
+      '<path d="M138 120 v-14 a12 12 0 0 1 24 0 v14" fill="none" stroke="#b9760a" stroke-width="9"/><path d="M138 120 v-14 a12 12 0 0 1 24 0 v14" fill="none" stroke="#ffd45a" stroke-width="4"/><rect x="124" y="118" width="52" height="42" rx="10" fill="#ffc83a" stroke="#b9760a" stroke-width="4"/><rect x="130" y="123" width="40" height="10" rx="5" fill="#ffe27a" opacity=".8"/><circle cx="150" cy="138" r="5.5" fill="#7a4a00"/><rect x="147.5" y="138" width="5" height="12" rx="2" fill="#7a4a00"/></svg>';
     function openStarter() {
       const g = ui.game, n = g.starterNext();
       if (!n) return;
       const ready = g.starterReady(), m = $('modal');
-      m.innerHTML = '<div class="card evw starter"><button class="evw-x" data-evx="1" aria-label="Close">&times;</button><div class="st-ribbon"><b>Starter Bonus!</b></div>' +
-        '<div class="st-art">' + CHAINED_GIFT + '</div>' +
+      m.innerHTML = '<div class="card evw starter"><button class="evw-x" data-evx="1" aria-label="Close">&times;</button><div class="st-ribbon"><i class="tl"></i><i class="tr"></i><b>Starter Bonus!</b></div>' +
+        '<div class="st-art' + (ready ? ' open' : '') + '"><div class="st-glow"></div>' + STARTER_SCENE + '</div>' +
         (ready ? '<p class="st-txt">Your next reward is ready!</p><div class="st-rew">' + rewardHTML(n.reward) + '</div>' : '<p class="st-txt">Upgrade to lv.<b>' + n.lv + '</b> to unlock the next reward!</p><div class="st-rew">' + rewardHTML(n.reward) + '</div>') +
         '<button class="evw-go" data-stgo="1">' + (ready ? 'Claim' : 'OK') + '</button></div>';
       m.hidden = false;
