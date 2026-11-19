@@ -1590,3 +1590,7 @@ body[data-tab="shop"] #screen-shop {
 
 /* sand and cobweb together: the web shows over the sand, and stays on the item after the sand clears */
 .cell.locked .sandweb { z-index: 4; opacity: .9; }
+
+/* idle: items that can be merged pulse */
+.cell.hintpulse .spr { animation: mergePulse .9s ease-in-out infinite; }
+@keyframes mergePulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.18); } }

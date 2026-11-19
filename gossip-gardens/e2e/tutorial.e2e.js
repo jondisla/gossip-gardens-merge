@@ -233,6 +233,20 @@ async function impossibleTest(browser, base) {
   } catch (e) { fail(label, e.message); } finally { await page.close(); }
 }
 
+// ---- idle for a few seconds: mergeable items start to pulse, and stop as soon as you touch the board ----
+async function pulseTest(browser, base) {
+  const label = 'merge-pulse', page = await newPage(browser, base);
+  try {
+    await page.evaluate(() => { const s = GG.testGame().s; s.tut = { seen: {}, off: true }; });
+    const count = () => page.evaluate(() => document.querySelectorAll('.cell.hintpulse').length);
+    await sleep(2500); if ((await count()) !== 0) { fail(label, 'items pulsed before the player was idle'); return; }
+    let n = 0; for (let i = 0; i < 16 && !n; i++) { await sleep(500); n = await count(); }
+    if (n < 2) { fail(label, 'no mergeable items pulsed after being idle'); return; }
+    await page.mouse.click(5, 400); await sleep(700);
+    if ((await count()) !== 0) fail(label, 'the pulse did not stop when the player touched the screen'); else ok('mergeable items pulse when idle and stop on touch');
+  } catch (e) { fail(label, e.message); } finally { await page.close(); }
+}
+
 // ---- tips must wait: nothing shows over a dialog ---------------------------------------------
 async function waitsTest(browser, base) {
   const label = 'waits-for-dialogs', page = await newPage(browser, base);
@@ -325,7 +339,7 @@ const GG_ALL = 99;
   try {
     console.log('Tutorial end-to-end tests (' + base + ')');
     const only = (process.argv.find((a) => a.startsWith('--only=')) || '').slice(7);
-    if (!only) { await firstMinute(browser, base); await stuckTest(browser, base); await waitsTest(browser, base); await impossibleTest(browser, base); }
+    if (!only) { await firstMinute(browser, base); await stuckTest(browser, base); await waitsTest(browser, base); await impossibleTest(browser, base); await pulseTest(browser, base); }
     for (const [key, setup] of Object.entries(SCENARIOS)) if (!only || only === key.split('#')[0]) await scenario(browser, base, key.split('#')[0], setup, false, key);
     for (const [id, setup] of Object.entries(ESTATE_SCENARIOS)) if (!only || only === id) await scenario(browser, base, id, setup, true);
     if (NATURAL || only === 'natural') await natural(browser, base);

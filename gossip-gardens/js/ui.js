@@ -249,8 +249,21 @@
 
   // A hand taps the Serve button of a waiting customer when the player has been idle for a few seconds.
   let lastTouch = Date.now(), lastOrdersHTML = '';
+  // Idle for a few seconds: one group of items that can be merged starts to pulse (as in the original).
+  let mergeHint = new Set();
+  function updateMergeHint() {
+    let next = new Set();
+    if (Date.now() - lastTouch > 6000 && tab === 'garden' && el.modal.hidden && !drag && !G.coachActive && !document.querySelector('.rwd, .fin-sheet, .sc-ov')) {
+      const groups = {};
+      game.s.cells.forEach((c, i) => { if (c && !c.web && !c.bubbleUntil && !(game.s.locks && game.s.locks[i]) && c.level < G.maxLevel(c.chain)) (groups[c.chain + ':' + c.level] = groups[c.chain + ':' + c.level] || []).push(i); });
+      const best = Object.keys(groups).filter((k) => groups[k].length >= 2).sort((a, b) => (+a.split(':')[1]) - (+b.split(':')[1]) || groups[a][0] - groups[b][0])[0];
+      if (best) next = new Set(groups[best].slice(0, 4));
+    }
+    if (next.size !== mergeHint.size || [...next].some((i) => !mergeHint.has(i))) { mergeHint = next; lastBoardHTML = ''; renderBoard(); }
+  }
   window.addEventListener('pointerdown', () => {
     lastTouch = Date.now();
+    if (mergeHint.size) { mergeHint = new Set(); lastBoardHTML = ''; }
     document.querySelectorAll('.hint-hand').forEach((h) => h.remove());
     lastOrdersHTML = '';
   }, true);
@@ -303,7 +316,7 @@
     }
     if (!c) return '<div class="cell empty' + alt + sel + '" data-i="' + i + '"></div>';
     const def = CHAINS[c.chain], role = def.role, now = game.clock();
-    let cls = 'cell item' + alt + sel + (flying.has(i) ? ' landing' : ''), extra = '';
+    let cls = 'cell item' + alt + sel + (flying.has(i) ? ' landing' : '') + (mergeHint.has(i) ? ' hintpulse' : ''), extra = '';
     if (c.bubbleUntil) { cls += ' bubble'; extra = '<div class="bub"></div><span class="tag">' + secs(c.bubbleUntil - now) + '</span>'; }
     else if (role === 'generator') {
       if (def.auto) extra = '<span class="tag auto">' + secs(Math.max(0, (c.nextAt || now) - now)) + '</span>';
@@ -638,6 +651,7 @@ const tbl = T.spawnTable || {}, top = (L) => Math.max.apply(null, (tbl[Math.min(
     return null;
   }
   function syncHint() {
+    updateMergeHint();
     if (G.coachActive) { const old = document.querySelector('.hint-hand.ext'); if (old) old.remove(); return; }   // the tutorial's own hand is showing
     const t = hintTarget(), cur = document.querySelector('.hint-hand.ext');
     if (cur && cur.parentElement === t) return;
