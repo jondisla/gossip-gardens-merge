@@ -240,9 +240,9 @@
 
   // ---- chores: small jobs for the estate's people, paid in coins, rewarding player XP -------
   const CHORES = [
-    { id: 'c1',  who: 'mabel',    title: 'Sweep the Porch',        cost: 20,  xp: 15 },
-    { id: 'c2',  who: 'rufus',    title: 'Deliver the Post',       cost: 30,  xp: 15 },
-    { id: 'c3',  who: 'pippa',    title: 'Bake for the Guests',    cost: 45,  xp: 20 },
+    { id: 'c1',  who: 'mabel',    title: 'Sweep the Porch',        cost: 26,  xp: 15 },
+    { id: 'c2',  who: 'rufus',    title: 'Deliver the Post',       cost: 40,  xp: 15 },
+    { id: 'c3',  who: 'pippa',    title: 'Bake for the Guests',    cost: 55,  xp: 20 },
     { id: 'c4',  who: 'ivo',      title: 'Water the Ferns',        cost: 60,  xp: 20 },
     { id: 'c5',  who: 'cordelia', title: 'Sharpen the Pencils',    cost: 80,  xp: 25 },
     { id: 'c6',  who: 'mabel',    title: 'Polish the Brass',       cost: 100, xp: 25 },

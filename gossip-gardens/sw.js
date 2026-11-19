@@ -1,5 +1,5 @@
 /* Optional offline cache. Only used when the game is served over http(s). */
-const CACHE = 'gossip-gardens-v88';
+const CACHE = 'gossip-gardens-v98';
 const FILES = ['./', 'index.html', 'style.css', 'icon.svg', 'icon-192.png', 'icon-512.png', 'manifest.webmanifest',
   'js/data.js', 'js/game.js', 'js/story.js', 'js/meta.js', 'js/sprites.js', 'js/portraits.js', 'js/art.js', 'js/paint.js',
   'js/audio.js', 'js/screens.js', 'js/tutorial.js', 'js/ui.js', 'audio/music.mp3'];

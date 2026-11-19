@@ -37,10 +37,8 @@
       const g = new Game(s, () => now);
       const put = (r, c, chain, level) => { s.cells[r * T.cols + c] = g.mk(chain, level); };
       // Few machines to start with; more arrive with player level, and sometimes drop out of gifts.
-      put(0, 2, 'gen_seed', 1); put(0, 4, 'gen_leaf', 1);
-      put(1, 3, 'gen_vine', 1);
+      put(0, 2, 'gen_seed', 1); put(0, 4, 'gen_leaf', 1);      // two machines to begin with (no free vine); more arrive with player level
       put(3, 1, 'seed', 1); put(3, 2, 'seed', 1); put(3, 4, 'leaf', 1); put(3, 5, 'leaf', 1);
-      put(4, 2, 'seed', 1); put(4, 3, 'seed', 1); put(4, 4, 'leaf', 1); put(4, 5, 'leaf', 1);
       put(5, 3, 'gift', 1); put(5, 1, 'scissors', 1); put(5, 5, 'dust', 1);
       g.scatterBoard();
       for (let k = 0; k < T.orderSlots; k++) g.addOrder();
@@ -51,24 +49,32 @@
     /** Scatter energy-sand, merge-to-clear sand and cobwebbed items over the free cells of a new board. */
     scatterBoard() {
       const s = this.s, cols = T.cols, core = this.chainPool();
+      // About two thirds of the starting board is sand, like the original: only a small open patch near the machines is kept clear.
+      const open = new Set([[0, 1], [0, 3], [1, 2], [1, 3], [2, 2], [2, 3]].map((p) => p[0] * cols + p[1]));
       const free = [];
-      for (let i = 0; i < N; i++) { const r = Math.floor(i / cols); if (r !== 0 && r !== 2 && !s.cells[i]) free.push(i); }
+      for (let i = 0; i < N; i++) if (!open.has(i) && !s.cells[i]) free.push(i);
       const take = () => free.splice(Math.floor(this.rnd() * free.length), 1)[0];
+      const have = () => free.length > 0;
       const prizeOf = (table) => {
+        const p = prizeBase(table);
+        if (p && CHAINS[p.chain].role === 'ingredient' && this.rnd() < T.sandWebChance) p.web = true;     // sand AND cobweb
+        return p;
+      };
+      const prizeBase = (table) => {
         const pick = this.pickWeighted(table);
         if (!pick) return undefined;
         if (pick[0] === 'choice') return this.level() >= T.dropMachinesFromLevel ? { chain: 'choice', level: 1 } : { chain: core[Math.floor(this.rnd() * core.length)], level: 3 };
         return pick[0] === 'core' ? { chain: core[Math.floor(this.rnd() * core.length)], level: pick[1] } : { chain: pick[0], level: pick[1] };
       };
-      for (let k = 0; k < T.sandEnergy; k++) {
+      for (let k = 0; k < T.sandEnergy && have(); k++) {
         const i = take(), r = Math.floor(i / cols);
         const corner = r === T.rows - 1 && (i % cols === 0 || i % cols === cols - 1);
         const lock = { cost: corner ? T.lockCostCorner : 20 + 10 * (r >> 1) };
         const prize = prizeOf(T.lockPrizesEnergy); if (prize) lock.prize = prize;
         s.locks[i] = lock;
       }
-      for (let k = 0; k < T.sandNear; k++) { const i = take(); s.locks[i] = { cost: 0, near: true, prize: prizeOf(T.lockPrizesNear) }; }
-      for (let k = 0; k < T.webCount; k++) {
+      for (let k = 0; k < T.sandNear && have(); k++) { const i = take(); s.locks[i] = { cost: 0, near: true, prize: prizeOf(T.lockPrizesNear) }; }
+      for (let k = 0; k < T.webCount && have(); k++) {
         const i = take(), it = this.mk(core[Math.floor(this.rnd() * core.length)], this.pickWeighted([[2, 5], [3, 3], [4, 1]]));
         it.web = true; s.cells[i] = it;
       }
@@ -130,7 +136,7 @@
       const after = this.level();
       for (let L = before + 1; L <= after; L++) {
         const r = this.levelReward ? this.levelReward(L) : { gems: T.levelUpGems };
-        const txt = this.grant ? this.grant(r) : (this.s.gems += r.gems, '+' + r.gems + ' gems');
+        const txt = this.grant ? this.grant(r, { bag: true }) : (this.s.gems += r.gems, '+' + r.gems + ' gems');
         this.note('Level ' + L + '! ' + txt);
       }
       this.checkUnlocks();
@@ -385,17 +391,41 @@
         const j = r1 * T.cols + c1, o = s.cells[j];
         if (o && o.web) { delete o.web; this.fx.push({ type: 'pop', i: j }); n++; }
       }
+      // Merging beside merge-to-clear sand: one neighbouring sand tile gives way, and one more sand tile somewhere close by
+      // (random place) is uncovered too. Not every side opens. (Seen in the original.)
+      const near = [];
       for (const [dc, dr] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
         const c1 = c0 + dc, r1 = r0 + dr;
         if (c1 < 0 || c1 >= T.cols || r1 < 0 || r1 >= T.rows) continue;
         const j = r1 * T.cols + c1, L = s.locks && s.locks[j];
-        if (L && L.near) {
-          delete s.locks[j];
-          if (L.prize) s.cells[j] = this.mk(L.prize.chain, L.prize.level);
-          this.fx.push({ type: 'pop', i: j }); this.emit('unlock', {});
-        }
+        if (L && L.near) near.push(j);
+      }
+      if (near.length) {
+        const first = near[Math.floor(this.rnd() * near.length)];
+        this.openSand(first);
+        const dist = (j) => Math.abs(Math.floor(j / T.cols) - r0) + Math.abs((j % T.cols) - c0);
+        const rest = Object.keys(s.locks).map(Number).filter((j) => s.locks[j].near);
+        const close = rest.filter((j) => dist(j) <= 3), pool = close.length ? close : rest;
+        if (pool.length) this.openSand(pool[Math.floor(this.rnd() * pool.length)]);
       }
       return n;
+    }
+    /** Remove a sand tile and put its hidden prize there. A prize that was also in a cobweb comes up still webbed. */
+    openSand(j) {
+      const s = this.s, L = s.locks[j]; if (!L) return;
+      delete s.locks[j];
+      const def = L.prize && CHAINS[L.prize.chain];
+      if (def && def.role === 'currency') {
+        // Coins, gems and energy buried in sand are collected on the spot, with the original's "Collect Rewards" window.
+        const amt = def.payout[L.prize.level - 1], r = {};
+        if (L.prize.chain === 'coin') { s.coins += amt; r.coins = amt; this.emit('coins', { n: amt }); }
+        else if (L.prize.chain === 'gem') { s.gems += amt; r.gems = amt; }
+        else { this.addEnergy(amt); r.energy = amt; }
+        const last = this.popups[this.popups.length - 1];
+        if (last && last.kind === 'reward') { for (const k of Object.keys(r)) last.reward[k] = (last.reward[k] || 0) + r[k]; }
+        else this.popups.push({ kind: 'reward', reward: r });
+      } else if (L.prize) { const it = this.mk(L.prize.chain, L.prize.level); if (L.prize.web) it.web = true; s.cells[j] = it; }
+      this.fx.push({ type: 'pop', i: j }); this.emit('unlock', {});
     }
     /** Tap a locked sand tile: pay its energy price to open it (and receive any hidden prize). */
     unlock(i) {
@@ -403,11 +433,8 @@
       if (!L) return { ok: false };
       if (L.near) return { ok: false, msg: 'Merge items near the reward to unlock!' };
       if (!this.spendEnergy(L.cost)) return { ok: false, msg: 'Clearing this tile costs ' + L.cost + ' energy.', needEnergy: true };
-      delete s.locks[i];
-      if (L.prize) s.cells[i] = this.mk(L.prize.chain, L.prize.level);
-      this.fx.push({ type: 'pop', i });
-      this.emit('unlock', {});
-      return { ok: true, kind: 'unlock', msg: L.prize ? 'Cleared! You found something.' : 'Cleared!' };
+      this.openSand(i);
+      return { ok: true, kind: 'unlock', msg: L.prize && CHAINS[L.prize.chain].role !== 'currency' ? (L.prize.web ? 'Cleared, but it is in a cobweb. Merge beside it to free it.' : 'Cleared! You found something.') : 'Cleared!' };
     }
 
     canMerge(a, b) {
@@ -643,9 +670,9 @@
       }
       let coins = 0, ener = 0, gems = 0;
       for (const w of wants) {
-        coins += 3 * Math.pow(2, w.level - 1);
+        coins += T.orderCoins[Math.min(w.level, T.orderCoins.length) - 1];
         ener += 0.4 * Math.pow(2, w.level - 1);
-        if (w.level >= 5) gems = 1;
+        if (w.level >= 6) gems = 1;
       }
       const folks = (G.STORY && G.STORY.FOLKS) || ['mabel'];
       // Customers pay in different ways: coins and energy, coins and a good review (smiley), or just coins.

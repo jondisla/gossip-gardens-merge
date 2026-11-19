@@ -125,13 +125,59 @@
   function drainPopups() {
     if (!game.popups.length || !el.modal.hidden || tab !== 'garden' || G.coachActive) return;
     const p = game.popups.shift();
+    if (p.kind === 'reward') { play('unlock'); rewardPopup(p.reward, 'Collect Rewards'); return; }
     play('unlock');
     modal(p.kind === 'newgen' ? 'New machine!' : 'Machine upgraded!',
       '<div class="np-art">' + sprite(p.chain, p.level) + '</div><p style="text-align:center"><b>' + itemName(p.chain, p.level) + '</b></p>' +
       (p.kind === 'newgen' ? '<p style="text-align:center">Tap it to make new items.</p>' : '<p style="text-align:center">It now makes better items.</p>'), [{ label: 'Great!' }]);
   }
+  // ---- rewards: icons fly from where you tapped to the counters at the top, with a floating "+N" ----------------------
+  let lastPt = { x: window.innerWidth / 2, y: window.innerHeight * 0.6 }, suppressFly = false;
+  window.addEventListener('pointerdown', (e) => { lastPt = { x: e.clientX, y: e.clientY }; }, true);
+  const bump = (id) => { const p = $(id).parentElement; if (!p) return; p.classList.remove('bump'); void p.offsetWidth; p.classList.add('bump'); setTimeout(() => p.classList.remove('bump'), 420); };
+  function flyRewards(delta, from) {
+    const src = from || lastPt, kinds = [['coins', 'coinIco', 'coin', 8, 6], ['gems', 'gemIco', 'gem', 5, 1], ['energy', 'boltIco', 'bolt', 6, 4]];
+    let row = 0;
+    kinds.forEach(([k, id, ico, max, per]) => {
+      const amount = delta[k]; if (!(amount > 0) || !$(id)) return;
+      const tgt = $(id).getBoundingClientRect(), n = Math.min(max, Math.max(1, Math.ceil(amount / per)));
+      const lab = document.createElement('div'); lab.className = 'rplus ' + k;
+      lab.innerHTML = '<img src="' + G.iconImages[ico] + '" alt="">+' + amount; lab.style.cssText = 'left:' + src.x + 'px;top:' + (src.y - 28 - row * 26) + 'px';
+      document.body.appendChild(lab); lab.animate([{ opacity: 0, transform: 'translate(-50%,8px) scale(.7)' }, { opacity: 1, transform: 'translate(-50%,-6px) scale(1.1)', offset: .25 }, { opacity: 1, transform: 'translate(-50%,-20px) scale(1)', offset: .75 }, { opacity: 0, transform: 'translate(-50%,-34px) scale(1)' }], { duration: 1100, delay: row * 120 }).onfinish = () => lab.remove();
+      row++;
+      for (let i = 0; i < n; i++) {
+        const f = document.createElement('img'); f.className = 'rfly'; f.src = G.iconImages[ico]; f.alt = '';
+        f.style.cssText = 'left:' + (src.x - 14) + 'px;top:' + (src.y - 14) + 'px';
+        document.body.appendChild(f);
+        const dx = tgt.left + tgt.width / 2 - src.x, dy = tgt.top + tgt.height / 2 - src.y, sx = (Math.random() - 0.5) * 70, sy = -26 - Math.random() * 44;
+        const a = f.animate([{ transform: 'translate(0,0) scale(.4)', opacity: 0 }, { transform: 'translate(' + sx + 'px,' + sy + 'px) scale(1.2)', opacity: 1, offset: .28 }, { transform: 'translate(' + dx + 'px,' + dy + 'px) scale(.75)', opacity: 1 }], { duration: 700, delay: 250 + i * 70, easing: 'cubic-bezier(.45,.1,.3,1)', fill: 'both' });
+        a.onfinish = () => { f.remove(); bump(id); play('collect'); };
+      }
+    });
+  }
+  /** The "Rewards" window of the original: what you got, then it all flies to the counters. */
+  function rewardPopup(r, title) {
+    const items = [];
+    if (r.coins) items.push(['coin', r.coins]); if (r.gems) items.push(['gem', r.gems]); if (r.energy) items.push(['bolt', r.energy]);
+    if (r.gift) items.push(['gift', 'x' + r.gift]); if (r.tool) items.push([r.tool, '']);
+    if (!items.length) return;
+    const ov = document.createElement('div'); ov.className = 'rwd';
+    const img = (k) => (k === 'gift' ? 'art/items/gift_box.webp' : G.iconImages[k] || (G.itemImage ? G.itemImage(k, 1) : 'art/items/gift_box.webp'));
+    ov.innerHTML = '<div class="rwd-rib">' + (title || 'Rewards') + '</div><div class="rwd-row">' + items.map((it) => '<div class="rwd-tile"><img src="' + img(it[0]) + '" alt=""><b>' + it[1] + '</b></div>').join('') + '</div><div class="rwd-hint">Tap anywhere to continue</div>';
+    document.body.appendChild(ov);
+    ov.addEventListener('pointerdown', () => {
+      const tiles = [...ov.querySelectorAll('.rwd-tile')];
+      const first = tiles[0] ? tiles[0].getBoundingClientRect() : null;
+      ov.remove();
+      if (first) flyRewards({ coins: r.coins || 0, gems: r.gems || 0, energy: r.energy || 0 }, { x: first.left + first.width / 2, y: first.top + first.height / 2 });
+    }, { once: true });
+  }
+
   function act(fn, okSound) {
+    const b0 = { coins: game.s.coins, gems: game.s.gems, energy: game.s.energy };
     const r = fn();
+    const delta = { coins: game.s.coins - b0.coins, gems: game.s.gems - b0.gems, energy: game.s.energy - b0.energy };
+    if (!suppressFly && !game.popups.some((p) => p.kind === 'reward') && (delta.coins > 0 || delta.gems > 0 || delta.energy > 0)) setTimeout(() => flyRewards(delta), 0);
     if (r && r.msg) toast(r.msg);
     if (r && r.needEnergy) offerRefill();
     if (r && r.ok && r.kind === 'choice') { openChoice(r); return r; }
@@ -233,7 +279,8 @@
         (!ready && unmet === 1 && o.wants.length >= 2 ? '<span class="almost">Almost there!</span>' : '') +
         (ready && idle && !G.coachActive && !handShown && (handShown = true) ? '<span class="hint-hand" aria-hidden="true"></span>' : '') + '</div>';
     }).join('');
-        if (html !== lastOrdersHTML) { const sl = el.orders.scrollLeft; el.orders.innerHTML = html; el.orders.scrollLeft = sl; lastOrdersHTML = html; }
+    const bagHTML = game.bagCount() ? '<button class="bagbtn" data-bag="1" aria-label="Free items. Tap to bring them down"><img src="art/items/gift_box.webp" alt="" draggable="false"><b>' + game.bagCount() + '</b></button>' : '';
+    if (html + bagHTML !== lastOrdersHTML) { const sl = el.orders.scrollLeft; el.orders.innerHTML = html + bagHTML; el.orders.scrollLeft = sl; lastOrdersHTML = html + bagHTML; }
   }
 
   function cellHTML(i, c, needed) {
@@ -242,7 +289,8 @@
     const lock = game.s.locks && game.s.locks[i];
     if (lock && lock.near) {
       const hint = lock.prize ? '<span class="buried">' + sprite(lock.prize.chain, lock.prize.level) + '</span>' : '';
-      return '<div class="cell locked near' + sel + '" data-i="' + i + '"><img class="sand" src="' + G.extraImages.sand + '" alt="" draggable="false">' + hint + '</div>';
+      const web = lock.prize && lock.prize.web ? '<img class="web sandweb" src="' + G.extraImages.cobweb + '" alt="" draggable="false" style="transform:rotate(' + ((i % 4) * 90) + 'deg)">' : '';
+      return '<div class="cell locked near' + sel + '" data-i="' + i + '"><img class="sand" src="' + G.extraImages.sand + '" alt="" draggable="false">' + hint + web + '</div>';
     }
     if (lock) {
       const inner = lock.prize
@@ -250,7 +298,8 @@
         : icon('bolt') + '<b>' + lock.cost + '</b>';
       return '<div class="cell locked' + sel + '" data-i="' + i + '"><img class="sand" src="' + G.extraImages.sand + '" alt="" draggable="false">' +
         '<span class="lockbub' + (lock.prize ? ' prize' : '') + '"><img class="bubimg" src="' + G.extraImages.bubble + '" alt="" draggable="false"><span class="lbin">' + inner + '</span></span>' +
-        '<img class="lockpad" src="' + G.extraImages.padlock + '" alt="" draggable="false"></div>';
+        '<img class="lockpad" src="' + G.extraImages.padlock + '" alt="" draggable="false">' +
+        (lock.prize && lock.prize.web ? '<img class="web sandweb" src="' + G.extraImages.cobweb + '" alt="" draggable="false" style="transform:rotate(' + ((i % 4) * 90) + 'deg)">' : '') + '</div>';
     }
     if (!c) return '<div class="cell empty' + alt + sel + '" data-i="' + i + '"></div>';
     const def = CHAINS[c.chain], role = def.role, now = game.clock();
@@ -420,7 +469,7 @@
     }).join('');
     let makers = '';
     if (def.role === 'ingredient') {
-      const ids = Object.keys(CHAINS).filter((id) => CHAINS[id].role === 'generator' && (CHAINS[id].produces === chain || CHAINS[id].produces === '*'));
+      const ids = Object.keys(CHAINS).filter((id) => CHAINS[id].role === 'generator' && CHAINS[id].produces === chain);   // only machines made for this item; the all-round Wishing Vine would just confuse
       makers = ids.length ? '<h4 class="ci-sub">Generated by:</h4><div class="ci-makers">' +
         ids.map((id) => '<div class="ci-maker"><div class="ci-tile known">' + sprite(id, 1) + '</div><small>' + CHAINS[id].names[0] + '</small></div>').join('') + '</div>' : '';
     } else if (def.role === 'generator') {
@@ -471,6 +520,7 @@ const tbl = T.spawnTable || {}, top = (L) => Math.max.apply(null, (tbl[Math.min(
 
   // ---- input: orders, info buttons, header -----------------------------------------
   el.orders.addEventListener('click', (e) => {
+    if (e.target.closest('[data-bag]')) { act(() => game.dropBag()); return; }
     const b = e.target.closest('button[data-serve]');
     if (b && !b.disabled) {
       const o = game.s.orders.find((x) => x.id === +b.dataset.serve), boardHas = {};
@@ -626,7 +676,7 @@ const tbl = T.spawnTable || {}, top = (L) => Math.max.apply(null, (tbl[Math.min(
   window.addEventListener('pagehide', writeSave);
 
   // ---- boot --------------------------------------------------------------
-  const ui = { get game() { return game; }, toast, modal, closeModal, menu, chestLabel, act, render, save: writeSave, audio: play, showTab, get lastTab() { return lastTab; }, get tab() { return tab; } };
+  const ui = { get game() { return game; }, rewardPopup, setSuppressFly: (v) => { suppressFly = !!v; }, toast, modal, closeModal, menu, chestLabel, act, render, save: writeSave, audio: play, showTab, get lastTab() { return lastTab; }, get tab() { return tab; } };
   window.GG.ui = ui;
   screens = G.makeScreens(ui);
   tutorial = G.makeTutorial(ui); G.tutorial = tutorial; G.testGame = () => game;

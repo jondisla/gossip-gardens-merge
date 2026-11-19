@@ -13,7 +13,8 @@ function loadGG() {
   }
   return ctx.GG;
 }
-const { Game, CHAINS, CHAIN_UNLOCK } = loadGG();
+const { Game, CHAINS, CHAIN_UNLOCK, xpForLevel } = loadGG();
+const GG_XP = (L) => xpForLevel(L);
 
 test('new players start with just two chains', () => {
   const g = new Game(Game.newState(Date.now(), 3));
@@ -45,17 +46,17 @@ test('orders never ask for a level beyond a chain\'s top level and use unlocked 
 
 test('a full board delays the machine instead of losing it', () => {
   const g = new Game(Game.newState(Date.now(), 3));
-  g.s.cells.fill({ chain: 'seed', level: 1 });
+  g.s.cells.fill({ chain: 'seed', level: 1 }); g.s.locks = {};
   g.s.xp = 1e6; g.tick();
   assert.ok(!g.s.unlocked || !g.s.unlocked.flour);
   g.s.cells[5] = null; g.tick();
   assert.ok(g.s.unlocked.flour);
 });
 
-test('a new board starts with only two machines and the vine', () => {
+test('a new board starts with two machines and no free vine', () => {
   const g = new Game(Game.newState(Date.now(), 3));
   const gens = g.s.cells.filter((c) => c && CHAINS[c.chain].role === 'generator').map((c) => c.chain).sort();
-  assert.deepEqual(gens, ['gen_leaf', 'gen_seed', 'gen_vine']);
+  assert.deepEqual(gens, ['gen_leaf', 'gen_seed']);
 });
 
 test('older saves that already own a machine are not given a second one at the unlock level', () => {

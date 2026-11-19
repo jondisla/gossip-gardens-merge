@@ -17,13 +17,16 @@ const { Game, TUNING: T } = loadGG();
 const fresh = () => new Game(Game.newState(1700000000000, 5), () => 1700000000000);
 const C = T.cols;
 
-test('a new game scatters sand and webs over the board, away from rows 0 and 2', () => {
+test('a new game covers about two thirds of the board with sand and webs, keeping a small open patch', () => {
   const g = fresh();
   const keys = Object.keys(g.s.locks).map(Number);
   assert.equal(keys.length, T.sandEnergy + T.sandNear);
   assert.equal(keys.filter((i) => g.s.locks[i].near).length, T.sandNear);
   assert.equal(g.s.cells.filter((c) => c && c.web).length, T.webCount);
-  keys.forEach((i) => { const r = Math.floor(i / C); assert.ok(r !== 0 && r !== 2, 'sand row ' + r); assert.equal(g.s.cells[i], null); });
+  keys.forEach((i) => { assert.equal(g.s.cells[i], null); });
+  const empty = g.s.cells.filter((c, i) => !c && !g.s.locks[i]).length;
+  assert.ok(empty >= 4 && empty <= 10, 'a small open patch: ' + empty + ' empty cells');
+  assert.ok((keys.length + T.webCount) / g.s.cells.length >= 0.65, 'mostly covered');
   const rows = new Set(keys.map((i) => Math.floor(i / C)));
   assert.ok(rows.size >= 4, 'sand is spread over several rows');
   keys.filter((i) => g.s.locks[i].near).forEach((i) => assert.ok(g.s.locks[i].prize, 'near sand hides a prize'));
@@ -59,7 +62,7 @@ test('unlocking costs energy, opens the tile and reveals a prize', () => {
   const g = fresh();
   g.s.cells.fill(null);
   const plain = 7 * C, prize = 7 * C + 1;
-  g.s.locks = { [plain]: { cost: 30 }, [prize]: { cost: 30, prize: { chain: 'gem', level: 1 } } };
+  g.s.locks = { [plain]: { cost: 30 }, [prize]: { cost: 30, prize: { chain: 'gift', level: 1 } } };
   g.s.energy = 20;
   const r = g.unlock(plain);
   assert.equal(r.ok, false); assert.ok(r.needEnergy); assert.ok(g.s.locks[plain]);
@@ -147,4 +150,46 @@ test('a webbed item still cannot be dragged away, even onto a matching item', ()
   g.s.cells[10] = w; g.s.cells[11] = g.mk('seed', 2);
   assert.equal(g.move(10, 11).ok, false);
   assert.equal(g.s.cells[10].web, true);
+});
+
+test('merging beside sand opens one neighbouring tile plus one more nearby, not every side', () => {
+  const g = fresh();
+  g.s.cells.fill(null);
+  const mkLock = () => ({ cost: 0, near: true, prize: { chain: 'seed', level: 3 } });
+  // the merge happens at cell 24 (row 3, col 3 on a 7-wide board); sand on all four sides and a few more around
+  const C2 = T.cols;
+  g.s.locks = {};
+  [24 - 1, 24 + 1, 24 - C2, 24 + C2, 24 + 2 * C2, 24 - 2 * C2].forEach((j) => { g.s.locks[j] = mkLock(); });
+  g.s.cells[24 - 2] = null;
+  const n0 = Object.keys(g.s.locks).length;
+  g.clearWebs(24);
+  const left = Object.keys(g.s.locks).length;
+  assert.equal(n0 - left, 2, 'exactly two sand tiles open per merge');
+});
+
+test('a buried item can be sand AND cobweb: the sand clears but the web stays until another merge', () => {
+  const g = fresh();
+  g.s.cells.fill(null); g.s.locks = { 10: { cost: 0, near: true, prize: { chain: 'seed', level: 3, web: true } } };
+  g.clearWebs(11);                                   // a merge beside the sand
+  assert.equal(g.s.locks[10], undefined);
+  assert.ok(g.s.cells[10] && g.s.cells[10].web, 'the item comes up still webbed');
+  g.clearWebs(11);                                   // another merge beside it frees it
+  assert.ok(!g.s.cells[10].web);
+  g.s.locks = { 20: { cost: 20, prize: { chain: 'seed', level: 2, web: true } } };
+  g.s.energy = 100; assert.ok(g.unlock(20).ok);      // energy sand behaves the same way
+  assert.ok(g.s.cells[20].web);
+});
+
+test('coins, gems and energy buried in sand are collected on the spot and shown in a Collect Rewards window', () => {
+  const g = fresh();
+  g.s.cells.fill(null); g.s.locks = { 5: { cost: 10, prize: { chain: 'bolt', level: 1 } }, 6: { cost: 0, near: true, prize: { chain: 'coin', level: 2 } } };
+  g.s.energy = 50; g.s.coins = 0;
+  assert.ok(g.unlock(5).ok);
+  assert.equal(g.s.cells[5], null);                                   // no item on the board: it was paid out
+  assert.equal(g.s.energy, 50 - 10 + 2);
+  assert.equal(g.popups[g.popups.length - 1].kind, 'reward');
+  g.clearWebs(13);                                                      // a merge below cell 6 opens the near sand
+  assert.equal(g.s.coins, 6);
+  assert.equal(g.popups.filter((p) => p.kind === 'reward').length, 1, 'rewards from one action share one window');
+  assert.equal(g.popups[0].reward.coins, 6);
 });

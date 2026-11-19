@@ -81,7 +81,7 @@ test('sparkle dust raises an item a level but not machines or top-level items', 
 });
 
 test('wish orb makes exactly the items the orders are missing', () => {
-  const g = mk();
+  const g = mk(); g.s.locks = {};
   g.s.orders = [{ id: 1, cust: 'mabel', wants: [{ chain: 'seed', level: 3 }, { chain: 'leaf', level: 2 }], reward: { coins: 1, energy: 1, gems: 0, stars: 1 } }];
   g.s.cells[0] = g.mk('orb', 1);
   g.s.cells[1] = g.mk('leaf', 2); // already have one of them
@@ -205,13 +205,13 @@ test('energy refill: the first of the day is free, then the price doubles', () =
   assert.equal(g.refillCost(), 0);
 });
 
-test('player level rises with xp and pays gems on level up', () => {
+test('player level rises with xp; a plain level pays nothing', () => {
   const g = mk();
   assert.equal(g.level(), 1);
   const gems = g.s.gems;
   g.addPlayerXp(GG.xpForLevel(2));
   assert.equal(g.level(), 2);
-  assert.equal(g.s.gems, gems + T.levelUpGems);
+  assert.equal(g.s.gems, gems);
   assert.ok(g.notes.some((n) => n.includes('Level 2')));
   const lp = g.levelProgress();
   assert.ok(lp.into >= 0 && lp.need > 0);
@@ -252,12 +252,12 @@ test('each level pays its reward, and a profile with a name and id is created', 
   const g = mk();
   assert.ok(g.s.profile && /^[A-Z0-9]{8}$/.test(g.s.profile.id) && g.s.profile.name.startsWith('Player'));
   const r2 = g.levelReward(2), r3 = g.levelReward(3), r6 = g.levelReward(6);
-  assert.equal(r2.gems, T.levelUpGems); assert.equal(r2.coins, 20); assert.ok(!r2.gift);
+  assert.ok(!r2.gems && !r2.coins && !r2.gift);        // a plain level pays nothing but the unlocks
   assert.equal(r3.gift, 1); assert.equal(r6.gift, 2);
   const coins = g.s.coins;
   g.addPlayerXp(GG.xpForLevel(3));            // jumps two levels: both rewards are paid
   assert.equal(g.level(), 3);
-  assert.ok(g.s.coins >= coins + 20 + 30);
+  assert.equal(g.s.coins, coins);
   assert.ok(g.notes.some((n) => n.includes('Level 3')));
   const g2 = GG.Game.load(g.serialize(), () => g.clock());
   assert.equal(g2.s.profile.id, g.s.profile.id);

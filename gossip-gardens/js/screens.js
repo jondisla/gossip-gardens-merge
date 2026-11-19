@@ -326,7 +326,7 @@
       m.hidden = false;
       m.onclick = (e) => {
         if (e.target.closest('[data-evx]') || e.target === m) { m.onclick = null; ui.closeModal(); return; }
-        if (e.target.closest('[data-stgo]')) { m.onclick = null; ui.closeModal(); if (ready) { ui.act(() => g.claimStarter(), 'claim'); renderEstate(); ui.render(); } }
+        if (e.target.closest('[data-stgo]')) { m.onclick = null; ui.closeModal(); if (ready) { ui.setSuppressFly(true); const r = ui.act(() => g.claimStarter(), 'claim'); ui.setSuppressFly(false); if (r && r.reward) ui.rewardPopup(r.reward); renderEstate(); ui.render(); } }
       };
     }
 
@@ -368,7 +368,7 @@
       if (b.dataset.ev) { ui.audio('tap'); (b.dataset.ev === 'frenzy' ? openFrenzy : openGoals)(); return; }
       if (b.dataset.chest) {
         if (!g.chestReady()) { ui.toast('The chest fills again in ' + ui.chestLabel(g.chestMsLeft()) + '.'); ui.audio('error'); return; }
-        ui.act(() => g.openChest(), 'claim'); renderEstate(); ui.render(); return;
+        ui.setSuppressFly(true); { const r = ui.act(() => g.openChest(), 'claim'); ui.setSuppressFly(false); if (r && r.reward) ui.rewardPopup(r.reward, 'Free chest'); } renderEstate(); ui.render(); return;
       }
       if (b.dataset.go) { ui.audio('tap'); ui.showTab(b.dataset.go); return; }
       if (b.dataset.viewstep) {

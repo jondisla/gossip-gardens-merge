@@ -89,8 +89,8 @@
     energyPerTap: 1,
     energyRefillGemCost: 10,    // first refill each day is free, then 10, 20, 40...
 
-    startCoins: 50,
-    startGems: 20,
+    startCoins: 0,              // the original starts with none: the first repair takes a few minutes of serving
+    startGems: 0,               // the original starts with none; the first starter-bonus gift (level 2) pays 50
 
     generatorCooldown: false,   // true = every machine runs out of taps and must recharge; false = only the machines in cooldownMachines do
     cooldownMachines: ['gen_garden', 'gen_tools', 'gen_cafe'],   // the later machines; the first four never need a rest
@@ -126,9 +126,10 @@
 
     // Orders
     orderSlots: 3,
-    orderMinLevel: 2,
-    orderMaxLevelStart: 3,
-    orderMaxLevelCap: 5,
+    orderMinLevel: 3,           // the original's customers ask for tier 3 to 5 items from the very start
+    orderMaxLevelStart: 5,
+    orderMaxLevelCap: 7,
+    orderCoins: [1, 2, 4, 8, 13, 22, 35, 55, 80],     // what an item of each level pays: about one coin per energy spent, like the original's early game
 
     // Sand and cobwebs are scattered at random over the board (never on row 0 or 2, which stay free to work in).
     // "energy" sand opens when you tap it and pay energy; its prizes are modest.
@@ -139,9 +140,10 @@
     giftBoostChance: 0.07,            // a gift sometimes holds a tonic or a time bubble
     featureLevels: { shop: 2, events: 3 },   // buttons that open at this player level ("Unlocks at level N")
     customerRepairs: [6, 12, 24],     // repairs done for the 4th, 5th and 6th customer to join the queue
-    sandEnergy: 9,
-    sandNear: 8,
+    sandEnergy: 10,
+    sandNear: 32,             // the original's starting board is about two thirds sand
     webCount: 6,
+    sandWebChance: 0.3,         // share of buried items that are ALSO in a cobweb: the sand clears, the web needs another merge
     lockCostCorner: 100,              // a bottom-corner energy tile costs extra
     lockPrizesEnergy: [[null, 5], [['coin', 1], 2], [['gem', 1], 1], [['bolt', 1], 1], [['gift', 1], 1]],
     lockPrizesNear: [[['gift', 1], 3], [['gift', 2], 2], [['gem', 2], 2], [['coin', 3], 2], [['bolt', 2], 2], [['gem', 3], 1], [['scissors', 2], 1], [['core', 3], 3], [['core', 4], 1], [['choice', 1], 1], [['tonic', 2], 2], [['timebub', 1], 1]],

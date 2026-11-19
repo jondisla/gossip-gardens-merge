@@ -28,7 +28,7 @@ function mk() {
 const at = (r, c) => r * T.cols + c;
 
 test('merging two equal items makes the next level', () => {
-  const g = mk();
+  const g = mk(); g.s.locks = {};
   g.s.cells[0] = { chain: 'seed', level: 1 };
   g.s.cells[1] = { chain: 'seed', level: 1 };
   const r = g.move(0, 1);
@@ -56,14 +56,14 @@ test('top level items do not merge', () => {
 });
 
 test('moving into an empty cell moves the item', () => {
-  const g = mk();
+  const g = mk(); g.s.locks = {};
   g.s.cells[0] = { chain: 'seed', level: 1 };
   assert.equal(g.move(0, 5).kind, 'move');
   assert.ok(g.s.cells[5] && !g.s.cells[0]);
 });
 
 test('merging beside a third matching item gives a bonus coin', () => {
-  const g = mk();
+  const g = mk(); g.s.locks = {};
   g.s.cells[at(3, 3)] = { chain: 'leaf', level: 1 };
   g.s.cells[at(3, 4)] = { chain: 'leaf', level: 1 };
   g.s.cells[at(3, 5)] = { chain: 'leaf', level: 1 };
@@ -86,7 +86,7 @@ test('generator spends energy, fills nearest empty cell and uses a charge (coold
 });
 
 test('generators have no cooldown: tap until energy or board space runs out', () => {
-  const g = mk();
+  const g = mk(); g.s.locks = {};
   g.s.cells.fill(null); g.s.cells[0] = { chain: 'gen_seed', level: 1, charges: 6 };
   g.s.energy = 40;
   for (let k = 0; k < 25; k++) assert.ok(g.tap(0).ok, 'tap ' + k);
@@ -167,6 +167,7 @@ test('gift boxes unlock on a timer, one at a time, then open', () => {
 test('gift speed-up costs gems and makes it openable', () => {
   const g = mk();
   g.s.cells[0] = { chain: 'gift', level: 2 };
+  g.s.gems = 100;
   g.tap(0);
   const gems = g.s.gems;
   assert.ok(g.speedUp(0).ok);
@@ -176,6 +177,7 @@ test('gift speed-up costs gems and makes it openable', () => {
 
 test('bubbles can be bought with gems or burst into coins', () => {
   const g = mk();
+  g.s.gems = 100;
   g.s.cells[0] = { chain: 'seed', level: 2, bubbleUntil: g.clock() + 1000 };
   g.s.cells[1] = { chain: 'seed', level: 2, bubbleUntil: g.clock() + 1000 };
   assert.equal(g.move(0, 1).ok, false);
@@ -302,7 +304,7 @@ test('customers waiting together are all different people, and the kids are incl
 
 test('a tonic makes machines free for its minutes, and merging two gives a longer one', () => {
   const g = new Game(Game.newState(1700000000000, 4), () => 1700000000000);
-  g.s.cells.fill(null); g.s.cells[3] = g.mk('tonic', 3);
+  g.s.locks = {}; g.s.cells.fill(null); g.s.cells[3] = g.mk('tonic', 3);
   assert.ok(g.tap(3).ok);
   assert.equal(g.s.cells[3], null);
   assert.equal(g.s.freeTapUntil, 1700000000000 + 4 * 60000);

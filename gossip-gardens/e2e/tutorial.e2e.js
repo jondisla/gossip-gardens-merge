@@ -49,7 +49,7 @@ const snapshot = (page) => page.evaluate(() => {
   return {
     cur: GG.tutorial.current(), okVisible: !!ok && ok.style.display !== 'none',
     skipVisible: !!document.querySelector('#coach .co-skip'),
-    modal: !document.getElementById('modal').hidden, sheet: !!document.querySelector('.fin-sheet, .fin-block, .sc-ov'),
+    modal: !document.getElementById('modal').hidden, sheet: !!document.querySelector('.fin-sheet, .fin-block, .sc-ov, .rwd'), rwd: !!document.querySelector('.rwd'),
     tab: document.body.dataset.tab, seen: Object.assign({}, (s.tut || {}).seen), off: !!(s.tut && s.tut.off), energy: s.energy, coins: s.coins,
   };
 });
@@ -171,7 +171,7 @@ const SCENARIOS = {
 const ESTATE_SCENARIOS = {                        // these tips live on the Estate screen
   'estate-intro': '',
   'chores':       's.coins = 999999; s.chores.done = 0;',
-  'starter':      '',
+  'starter':      'while (g.level() < 2) s.xp += 5;',
   'events':       's.chores.done = 1; s.xp = 99999;',
   'pay':          's.coins = 999999; s.chores.done = 0;',
   'chores-short': 's.coins = 0; s.chores.done = 0;',
@@ -189,7 +189,8 @@ async function scenarioIn(browser, base, id, setup, estate, key) {
     await page.evaluate(PRE.replace('%ID%', JSON.stringify(id)) + setup);
     if (estate) { await click(page, '#repairBtn'); await sleep(600); if (id === 'pay') { await click(page, '[data-chores]'); await sleep(500); } }
     let got = false;
-    for (let i = 0; i < 40 && !got; i++) { await sleep(250); const sn = await look(page); if (process.env.DEBUG && i % 8 === 0) console.log(JSON.stringify({ i, cur: sn.cur && sn.cur.id, modal: sn.modal, sheet: sn.sheet, tab: sn.tab, energy: sn.energy })); if (sn.modal && !sn.cur) { await page.mouse.click(5, 5); continue; } got = !!(sn.cur && sn.cur.id === id); if (sn.cur && sn.cur.id !== id) { fail(label, 'a different tip came first: "' + sn.cur.id + '"'); break; } }
+    for (let i = 0; i < 40 && !got; i++) { await sleep(250); const sn = await look(page); if (process.env.DEBUG && i % 8 === 0) console.log(JSON.stringify({ i, cur: sn.cur && sn.cur.id, modal: sn.modal, sheet: sn.sheet, tab: sn.tab, energy: sn.energy })); if (sn.rwd) { await page.mouse.click(200, 400); continue; }
+      if (sn.modal && !sn.cur) { await page.mouse.click(5, 5); continue; } got = !!(sn.cur && sn.cur.id === id); if (sn.cur && sn.cur.id !== id) { fail(label, 'a different tip came first: "' + sn.cur.id + '"'); break; } }
     if (!got) { if (!failures.some((f) => f.startsWith(label))) fail(label, 'the tip never appeared when its situation was set up'); return; }
     if (process.env.SHOT) await page.screenshot({ path: process.env.SHOT + '-' + key + '.png' });
     const cur0 = (await snapshot(page)).cur; if (cur0 && cur0.kind === 'action' && cur0.target.to) await wrongMoves(page, label, cur0);
@@ -251,6 +252,7 @@ async function firstMinute(browser, base) {
   try {
     for (let n = 0; n < 60 && order.length < 5; n++) {
       const sn = await look(page);
+      if (sn.rwd) { await page.mouse.click(200, 400); await sleep(300); continue; }
       if (sn.cur && sn.cur.visible) {
         if (!order.includes(sn.cur.id)) order.push(sn.cur.id);
         await doTip(page, look, label);
@@ -280,6 +282,7 @@ async function natural(browser, base) {
       if (process.env.DEBUG) console.log(JSON.stringify({ t: Math.round((Date.now() - t0) / 1000), cur: sn.cur && sn.cur.id, vis: sn.cur && sn.cur.visible, tab: sn.tab, modal: sn.modal, sheet: sn.sheet }));
       if (sn.cur && sn.cur.visible) { shown.add(sn.cur.id); await doTip(page, look, label); await sleep(150); continue; }
       if (sn.cur) { await sleep(300); continue; }
+      if (sn.rwd) { await page.mouse.click(200, 400); await sleep(300); continue; }
       if (sn.sheet) { if (!(await click(page, '[data-fin-ok]'))) await click(page, '.sc-skip'); await sleep(400); continue; }
       const did = await page.evaluate(() => {
         const g = GG.testGame(), s = g.s; if (s.energy < 5) s.energy = 40;

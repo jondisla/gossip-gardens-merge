@@ -18,6 +18,7 @@
     s.starsSpent = s.starsSpent || 0;
     s.freeTapUntil = s.freeTapUntil || 0;
     s.spins = s.spins || 0;
+    s.bag = Array.isArray(s.bag) ? s.bag : [];                 // free items waiting near the customers
     s.stats = Object.assign({ merges: 0, served: 0, taps: 0, collected: 0, gifts: 0 }, s.stats || {});
     s.estate = Object.assign({ done: {}, seen: {}, finish: {} }, s.estate || {});
     { const had = !!s.tut; s.tut = Object.assign({ seen: {}, off: false }, s.tut || {});
@@ -57,7 +58,7 @@
   // ---- engagement extras: happy meter, free chest, starter bonus, repair finishes ----------------
   const HAPPY_GOAL = 6, HAPPY_REWARD = { coins: 40, gems: 1, energy: 10 };
   const CHEST_MS = 2 * 60 * 60 * 1000;
-  const STARTER_REWARD = { coins: 100, gems: 10, energy: 30, gift: 1 };
+  const STARTER_REWARD = { coins: 0, gems: 50 };       // seen in the original: the first starter gift is 50 gems
   G.HAPPY_GOAL = HAPPY_GOAL; G.HAPPY_REWARD = HAPPY_REWARD; G.CHEST_MS = CHEST_MS; G.STARTER_REWARD = STARTER_REWARD;
   P.happyProgress = function () { return { n: this.s.happy || 0, goal: HAPPY_GOAL }; };
   P.chestMsLeft = function () { return Math.max(0, this.s.chest.readyAt - this.clock()); };
@@ -72,13 +73,14 @@
     const r = this.chestReward();
     this.s.chest.opened = (this.s.chest.opened || 0) + 1;
     this.s.chest.readyAt = this.clock() + CHEST_MS;
-    return { ok: true, reward: r, msg: 'Free chest: ' + this.grant(r) };
+    return { ok: true, reward: r, msg: 'Free chest: ' + this.grant(r, { bag: true }) };
   };
   // The starter bonus is a chain of gifts: the first is yours at once, the rest open as you reach higher player levels.
   const STARTER_STAGES = [
-    { lv: 1,  reward: STARTER_REWARD },
-    { lv: 5,  reward: { coins: 150, gems: 15, gift: 2 } },
-    { lv: 10, reward: { gems: 25, energy: 60, tool: 'dust' } },
+    { lv: 2,  reward: STARTER_REWARD },
+    { lv: 4,  reward: { gems: 10, energy: 50 } },
+    { lv: 7,  reward: { coins: 150, gems: 15, gift: 2 } },
+    { lv: 11, reward: { gems: 25, energy: 60, tool: 'dust' } },
     { lv: 15, reward: { coins: 400, gems: 30, gift: 3 } },
   ];
   G.STARTER_STAGES = STARTER_STAGES;
@@ -89,7 +91,7 @@
     if (!n) return { ok: false, msg: 'Already claimed.' };
     if (this.level() < n.lv) return { ok: false, msg: 'Upgrade to level ' + n.lv + ' to unlock the next reward.' };
     this.s.starterStage += 1; this.s.starter = true;
-    return { ok: true, reward: n.reward, msg: 'Starter bonus: ' + this.grant(n.reward) };
+    return { ok: true, reward: n.reward, msg: 'Starter bonus: ' + this.grant(n.reward, { bag: true }) };
   };
   /** A repair's finish is a colour option number (0 = classic colours). Purely a look. Old saves stored degrees: those become classic. */
   P.finishOf = function (id) { const n = this.s.estate.finish && this.s.estate.finish[id]; return Number.isInteger(n) && n >= 0 && n <= 9 ? n : 0; };
@@ -100,17 +102,17 @@
   };
 
   // ---- player level rewards ---------------------------------------------------
-  /** What reaching level L pays: gems and coins every level, plus a gift on the board every third level. */
+  /** What reaching level L pays. The original pays no coins or gems for a level (its starter-bonus chain does that), only an occasional gift. */
   P.levelReward = function (L) {
-    const r = { gems: T.levelUpGems, coins: 10 * L };
+    const r = {};
     if (L % 6 === 0) r.gift = 2; else if (L % 3 === 0) r.gift = 1;
     return r;
   };
 
   // ---- rewards ------------------------------------------------------------
   /** Apply a reward object. Returns a short text summary. */
-  P.grant = function (r) {
-    const s = this.s, parts = [];
+  P.grant = function (r, opt) {
+    const s = this.s, parts = [], viaBag = !!(opt && opt.bag);
     if (!r) return '';
     if (r.coins) { s.coins += r.coins; parts.push('+' + r.coins + ' coins'); }
     if (r.gems) { s.gems += r.gems; parts.push('+' + r.gems + ' gems'); }
@@ -119,17 +121,27 @@
     if (r.xp) { this.addXp(r.xp); parts.push('+' + r.xp + ' xp'); }
     if (r.freeTapMs) { s.freeTapUntil = Math.max(this.clock(), s.freeTapUntil) + r.freeTapMs; parts.push('free taps'); }
     const center = Math.floor(T.rows / 2) * T.cols + Math.floor(T.cols / 2);
-    if (r.gift) {
-      const j = this.place(this.mk('gift', r.gift), center);
-      if (j >= 0) parts.push('gift on board');
-      else { s.coins += 20 * r.gift; parts.push('+' + 20 * r.gift + ' coins (board full)'); }
-    }
-    if (r.tool) {
-      const j = this.place(this.mk(r.tool, r.toolLevel || 1), center);
-      if (j >= 0) parts.push(G.itemName(r.tool, r.toolLevel || 1) + ' on board');
-      else { s.coins += 30; parts.push('+30 coins (board full)'); }
-    }
+    // Free items: with the bag they wait near the customers until the player brings them down; otherwise straight onto the
+    // board, and into the bag if there is no room (never lost).
+    const deliver = (item, label) => {
+      if (viaBag) { s.bag.push(item); parts.push(label + ' in the bag'); return; }
+      if (this.place(item, center) >= 0) parts.push(label + ' on board');
+      else { s.bag.push(item); parts.push(label + ' in the bag (board full)'); }
+    };
+    if (r.gift) deliver(this.mk('gift', r.gift), 'gift');
+    if (r.tool) deliver(this.mk(r.tool, r.toolLevel || 1), G.itemName(r.tool, r.toolLevel || 1));
     return parts.join(', ');
+  };
+  /** Free items waiting in the bag. */
+  P.bagCount = function () { return this.s.bag.length; };
+  /** Bring the bag's items down onto the board as far as there is room. */
+  P.dropBag = function () {
+    const s = this.s, center = Math.floor(T.rows / 2) * T.cols + Math.floor(T.cols / 2);
+    if (!s.bag.length) return { ok: false, msg: '' };
+    let n = 0;
+    while (s.bag.length) { if (this.place(s.bag[0], center) < 0) break; s.bag.shift(); n++; }
+    if (!n) return { ok: false, msg: 'The board is full. Make some room first.' };
+    return { ok: true, kind: 'bag', msg: n + ' free item' + (n > 1 ? 's' : '') + ' on the board' + (s.bag.length ? ', ' + s.bag.length + ' still in the bag' : '') };
   };
 
   // ---- time and daily reset ---------------------------------------------------

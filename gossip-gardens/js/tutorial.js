@@ -97,7 +97,7 @@
     const badges = (c) => c.g.badges();
     const modalOpen = () => !document.getElementById('modal').hidden;
     // Anything the player has to finish first: a dialog, the colour sheet, a story scene. No tip appears over these.
-    const blocking = () => modalOpen() || !!document.querySelector('.fin-sheet, .fin-block, .sc-ov');
+    const blocking = () => modalOpen() || !!document.querySelector('.fin-sheet, .fin-block, .sc-ov, .rwd');
     const rectOf = (selector) => {
       if (!selector) return null;
       const e = q(selector); if (!e) return null;
@@ -134,9 +134,9 @@
       { id: 'sand-near', kind: 'action', tab: 'garden', scripted: true,
         when: (c) => !!sandPlan(c),
         text: () => 'Sand hides prizes! I put two items next to it. Drag one onto the other to merge them and uncover what is buried.',
-        snap: (c) => { const p = sandPlan(c); if (p) { c.cells[p.to] = c.g.mk('seed', 1); c.cells[p.from] = c.g.mk('seed', 1); } return p; },
+        snap: (c) => { const p = sandPlan(c); if (p) { c.cells[p.to] = c.g.mk('seed', 1); c.cells[p.from] = c.g.mk('seed', 1); p.n = Object.keys(c.s.locks).filter((k) => c.s.locks[k].near).length; } return p; },
         target: (c, p) => (p ? { sel: sel(p.from), to: sel(p.to) } : {}),
-        done: (c, p) => !p || !c.s.locks[p.sand] },
+        done: (c, p) => !p || Object.keys(c.s.locks).filter((k) => c.s.locks[k].near).length < p.n },
       { id: 'sand-energy', kind: 'action', tab: 'garden',
         when: (c) => lockIdx(c, (l) => !l.near && l.cost <= c.s.energy) >= 0,
         text: () => 'Sand with a bolt can be cleared by tapping it. You pay the energy shown. Some hide a gift! Give it a tap.',
@@ -261,7 +261,7 @@
     function pick(c) {
       const inModal = modalOpen(), busy = blocking();
       for (const t of TIPS) {
-        if (busy && !(inModal && t.inModal && !document.querySelector('.fin-sheet, .fin-block, .sc-ov'))) continue;   // finish what is on screen first
+        if (busy && !(inModal && t.inModal && !document.querySelector('.fin-sheet, .fin-block, .sc-ov, .rwd'))) continue;   // finish what is on screen first
         if (seen(t.id)) continue;
         if (inModal !== !!t.inModal) continue;               // dialog tips only inside a dialog, all others only outside
         if (t.tab !== 'any' && t.tab !== c.tab) continue;
@@ -384,7 +384,7 @@
         if (t.kind === 'action' && !t.scripted && !t.inModal && onTab && !t.when(c)) { mark(t.id); hide(); quietUntil = Date.now() + 700; return; }   // the step can no longer be done (or already was): move on, never trap the player
         if (t.kind === 'info' && !t.when(c) && onTab) { mark(t.id); hide(); quietUntil = Date.now() + 700; return; }   // the moment passed
         if (!onTab || document.hidden) { hide(); return; }
-        if (root) root.style.display = (blocking() && !(t.inModal && modalOpen() && !document.querySelector('.fin-sheet, .fin-block, .sc-ov'))) ? 'none' : '';   // dialogs and sheets come first
+        if (root) root.style.display = (blocking() && !(t.inModal && modalOpen() && !document.querySelector('.fin-sheet, .fin-block, .sc-ov, .rwd'))) ? 'none' : '';   // dialogs and sheets come first
         if (bubble && t.kind === 'action' && Date.now() - shownAt > stuckMs()) bubble.querySelector('.co-ok').style.display = '';
         const p = bubble && bubble.querySelector('p'); if (p) { const txt = t.text(c); if (p.textContent !== txt) p.textContent = txt; }
         return;

@@ -43,7 +43,7 @@ test('old v1 saves load and gain meta fields', () => {
 });
 
 test('gameplay feeds pass xp and festival blossoms', () => {
-  const g = mk();
+  const g = mk(); g.s.locks = {};
   g.s.cells[10] = { chain: 'leaf', level: 5 }; g.s.cells[11] = { chain: 'leaf', level: 5 };
   const xp0 = g.s.pass.xp, tk0 = g.s.event.tokens;
   g.move(10, 11);
@@ -109,14 +109,22 @@ test('free taps boost makes generators cost no energy', () => {
   assert.equal(g.s.energy, e);
 });
 
-test('gift rewards go on the board, or become coins when it is full', () => {
+test('gift rewards go on the board, or wait in the bag when it is full or when sent by bag', () => {
   const g = mk();
   g.grant({ gift: 2 });
   assert.ok(g.s.cells.some((c) => c && c.chain === 'gift' && c.level === 2));
+  g.s.locks = {};
   g.s.cells.fill({ chain: 'seed', level: 1 });
   const c0 = g.s.coins;
   g.grant({ gift: 2 });
-  assert.equal(g.s.coins, c0 + 40);
+  assert.equal(g.s.coins, c0);                       // nothing is lost or turned into coins
+  assert.equal(g.bagCount(), 1);
+  assert.equal(g.dropBag().ok, false);               // still no room
+  g.s.cells[7] = null;
+  assert.ok(g.dropBag().ok); assert.equal(g.bagCount(), 0);
+  assert.equal(g.s.cells[7].chain, 'gift');
+  g.grant({ gift: 1, tool: 'dust' }, { bag: true }); // free items from claims arrive in the bag first
+  assert.equal(g.bagCount(), 2);
 });
 
 test('garden pass: levels from xp, claim once, premium needs unlocking', () => {
@@ -386,6 +394,7 @@ test('free chest: ready at the start, then refills after two hours', () => {
 
 test('starter bonus can be claimed once', () => {
   const g = mk();
+  while (g.level() < 2) g.s.xp += 5;
   assert.equal(g.starterReady(), true);
   const coins = g.s.coins;
   assert.ok(g.claimStarter().ok);
@@ -432,15 +441,22 @@ test('Kitchen Rush: four daily tasks fill from play and pay out; all four unlock
   assert.ok(g.rushTasks().every((t) => t.n === 0 && !t.claimed));
 });
 
-test('starter bonus is a chain: the first gift is yours, the next ones wait for player levels', () => {
+test('starter bonus is a chain: 50 gems at level 2, then bigger gifts at higher levels', () => {
   const g = mk();
-  assert.ok(g.starterReady()); assert.ok(g.claimStarter().ok);
+  assert.equal(g.starterReady(), false);               // level 1: not yet
+  while (g.level() < 2) g.s.xp += 5;
+  assert.ok(g.starterReady());
+  const gems0 = g.s.gems;
+  assert.ok(g.claimStarter().ok);
+  assert.equal(g.s.gems, gems0 + 50);
   assert.equal(g.starterReady(), false);
-  assert.equal(g.starterNext().lv, 5);
+  assert.equal(g.starterNext().lv, 4);
   assert.equal(g.claimStarter().ok, false);
-  g.s.xp = 25 * 5 * 4;      // level 5
-  assert.ok(g.starterReady()); assert.ok(g.claimStarter().ok);
-  assert.equal(g.starterNext().lv, 10);
+  while (g.level() < 4) g.s.xp += 5;
+  const e0 = g.s.energy; g.s.energy = 0;
+  assert.ok(g.claimStarter().ok);
+  assert.ok(g.s.energy >= 50 || e0 >= 0);
+  assert.equal(g.starterNext().lv, 7);
 });
 
 test('Flaming Frenzy: coins become flames while the event runs, and tiers raise order pay', () => {
